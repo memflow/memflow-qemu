@@ -299,10 +299,9 @@ impl PhysicalMemory for QemuProcfs {
     }
 }
 
-// TODO: handle args properly
 /// Creates a new Qemu Procfs Connector instance.
 #[connector(name = "qemu_procfs")]
-pub fn create_connector(args: &ConnectorArgs) -> Result<QemuProcfs> {
+fn create_connector(args: &ConnectorArgs) -> Result<QemuProcfs> {
     if let Some(name) = args.get("name").or_else(|| args.get_default()) {
         QemuProcfs::with_guest_name(name)
     } else {
