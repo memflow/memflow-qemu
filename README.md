@@ -27,6 +27,10 @@ To compile a dynamic library as a plugin use the following command:
 
 ```cargo build --release --all-features```
 
+## Arguments
+
+- `name` - the name of the virtual machine (default argument, optional)
+
 ## License
 
 Licensed under MIT License, see [LICENSE](LICENSE).
