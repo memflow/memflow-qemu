@@ -22,6 +22,9 @@ libc = "0.2.70"
 clap = "2.33.0"
 simple_logger = "1.0.1"
 
+[profile.release]
+lto = true
+
 [features]
 default = []
 plugin = []

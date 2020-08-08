@@ -7,6 +7,12 @@ use memflow_derive::connector;
 use core::ffi::c_void;
 use libc::{c_ulong, iovec, pid_t, sysconf, _SC_IOV_MAX};
 
+#[derive(Clone, Copy)]
+#[repr(transparent)]
+struct IoSendVec(iovec);
+
+unsafe impl Send for IoSendVec {}
+
 fn qemu_arg_opt(args: &[String], argname: &str, argopt: &str) -> Option<String> {
     for (idx, arg) in args.iter().enumerate() {
         if arg == argname {
@@ -31,7 +37,7 @@ fn qemu_arg_opt(args: &[String], argname: &str, argopt: &str) -> Option<String> 
 pub struct QemuProcfs {
     pub pid: pid_t,
     pub mem_map: MemoryMap<(Address, usize)>,
-    temp_iov: Box<[iovec]>,
+    temp_iov: Box<[IoSendVec]>,
 }
 
 impl QemuProcfs {
@@ -165,9 +171,11 @@ impl QemuProcfs {
             pid: prc.stat.pid,
             mem_map,
             temp_iov: vec![
-                iovec {
-                    iov_base: std::ptr::null_mut::<c_void>(),
-                    iov_len: 0
+                IoSendVec {
+                    0: iovec {
+                        iov_base: std::ptr::null_mut::<c_void>(),
+                        iov_len: 0
+                    }
                 };
                 iov_max * 2
             ]
@@ -175,15 +183,15 @@ impl QemuProcfs {
         })
     }
 
-    fn fill_iovec(addr: &Address, data: &[u8], liov: &mut iovec, riov: &mut iovec) {
+    fn fill_iovec(addr: &Address, data: &[u8], liov: &mut IoSendVec, riov: &mut IoSendVec) {
         let iov_len = data.len();
 
-        *liov = iovec {
+        liov.0 = iovec {
             iov_base: data.as_ptr() as *mut c_void,
             iov_len,
         };
 
-        *riov = iovec {
+        riov.0 = iovec {
             iov_base: addr.as_u64() as *mut c_void,
             iov_len,
         };
@@ -232,9 +240,9 @@ impl PhysicalMemory for QemuProcfs {
                 if unsafe {
                     libc::process_vm_readv(
                         self.pid,
-                        iov_local.as_ptr(),
+                        iov_local.as_ptr().cast(),
                         (cnt + 1) as c_ulong,
-                        iov_remote.as_ptr(),
+                        iov_remote.as_ptr().cast(),
                         (cnt + 1) as c_ulong,
                         0,
                     )
@@ -279,9 +287,9 @@ impl PhysicalMemory for QemuProcfs {
                 if unsafe {
                     libc::process_vm_writev(
                         self.pid,
-                        iov_local.as_ptr(),
+                        iov_local.as_ptr().cast(),
                         (cnt + 1) as c_ulong,
-                        iov_remote.as_ptr(),
+                        iov_remote.as_ptr().cast(),
                         (cnt + 1) as c_ulong,
                         0,
                     )
