@@ -2,7 +2,7 @@ use log::info;
 
 use memflow_core::connector::ConnectorArgs;
 use memflow_core::*;
-use memflow_derive::connector;
+use memflow_derive::{connector, PoolablePhysicalMemory};
 
 use core::ffi::c_void;
 use libc::{c_ulong, iovec, pid_t, sysconf, _SC_IOV_MAX};
@@ -33,7 +33,7 @@ fn qemu_arg_opt(args: &[String], argname: &str, argopt: &str) -> Option<String> 
     None
 }
 
-#[derive(Clone)]
+#[derive(Clone, PoolablePhysicalMemory)]
 pub struct QemuProcfs {
     pub pid: pid_t,
     pub mem_map: MemoryMap<(Address, usize)>,
