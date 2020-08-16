@@ -14,8 +14,8 @@ crate-type = ["lib", "cdylib"]
 [dependencies]
 #memflow-core = { git = "ssh://git@github.com/memflow/memflow.git", branch = "dev", features = ["inventory"] }
 #memflow-derive = { git = "ssh://git@github.com/memflow/memflow.git", branch = "dev" }
-memflow-core = { path = "../memflow/memflow-core", features = ["inventory"] }
-memflow-derive = { path = "../memflow/memflow-derive" }
+memflow-core = { path = "../memflow/memflow-core/", features = ["inventory"] }
+memflow-derive = { path = "../memflow/memflow-derive/" }
 log = { version = "0.4.8", default-features = false }
 procfs = "0.7.8"
 libc = "0.2.70"
