@@ -305,6 +305,19 @@ impl PhysicalMemory for QemuProcfs {
 
         Ok(())
     }
+
+    fn metadata(&mut self) -> PhysicalMemoryMetadata {
+        PhysicalMemoryMetadata {
+            size: self
+                .mem_map
+                .as_ref()
+                .iter()
+                .last()
+                .map(|map| map.base().as_usize() + map.output().1)
+                .unwrap(),
+            readonly: false,
+        }
+    }
 }
 
 /// Creates a new Qemu Procfs Connector instance.
