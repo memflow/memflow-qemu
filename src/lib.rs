@@ -306,7 +306,7 @@ impl PhysicalMemory for QemuProcfs {
         Ok(())
     }
 
-    fn metadata(&mut self) -> PhysicalMemoryMetadata {
+    fn metadata(&self) -> PhysicalMemoryMetadata {
         PhysicalMemoryMetadata {
             size: self
                 .mem_map
