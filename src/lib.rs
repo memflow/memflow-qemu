@@ -216,7 +216,8 @@ impl PhysicalMemory for QemuProcfs {
 
         let mut void = FnExtend::void();
         let mut iter = mem_map.map_iter(
-            data.iter_mut().map(|(addr, buf)| (*addr, &mut **buf)),
+            data.iter_mut()
+                .map(|PhysicalReadData(addr, buf)| (*addr, &mut **buf)),
             &mut void,
         );
 
@@ -264,7 +265,7 @@ impl PhysicalMemory for QemuProcfs {
         let temp_iov = &mut self.temp_iov;
 
         let mut void = FnExtend::void();
-        let mut iter = mem_map.map_iter(data.iter().copied(), &mut void);
+        let mut iter = mem_map.map_iter(data.iter().copied().map(<_>::from), &mut void);
         //let mut iter = mem_map.map_iter(data.iter(), &mut FnExtend::new(|_|{}));
 
         let max_iov = temp_iov.len() / 2;
