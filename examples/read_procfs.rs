@@ -2,7 +2,6 @@ use std::time::Instant;
 
 use log::{info, Level};
 
-use memflow_core::connector::ConnectorArgs;
 use memflow_core::*;
 
 fn main() {
