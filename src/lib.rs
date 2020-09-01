@@ -119,16 +119,26 @@ impl QemuProcfs {
             */
             // we add all regions additionally shifted to the proper qemu memory map address
             mem_map.push_range(Address::NULL, size::kb(640).into(), map_base.into()); // section: [start - 640kb] -> map to start
-            mem_map.push_range(
-                size::mb(1).into(),
-                size::gb(2).into(),
-                (map_base + size::mb(1)).into(),
-            ); // section: [1mb - 2gb] -> map to 1mb
-            mem_map.push_range(
-                size::gb(4).into(),
-                (map_size + size::gb(2)).into(),
-                (map_base + size::gb(2)).into(),
-            ); // section: [4gb - max] -> map to 2gb
+                                                                                      // If larger than this specific size, second half after 2 gigs gets moved over past 4gb
+                                                                                      // TODO: Probably the same happens with i1440-fx
+            if map_size >= size::mb(2816) {
+                mem_map.push_range(
+                    size::mb(1).into(),
+                    size::gb(2).into(),
+                    (map_base + size::mb(1)).into(),
+                ); // section: [1mb - 2gb] -> map to 1mb
+                mem_map.push_range(
+                    size::gb(4).into(),
+                    (map_size + size::gb(2)).into(),
+                    (map_base + size::gb(2)).into(),
+                ); // section: [4gb - max] -> map to 2gb
+            } else {
+                mem_map.push_range(
+                    size::mb(1).into(),
+                    map_size.into(),
+                    (map_base + size::mb(1)).into(),
+                ); // section: [1mb - max] -> map to 1mb
+            }
         } else {
             // pc-i1440fx
             /*
