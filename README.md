@@ -21,7 +21,9 @@ This might cause duplicated exports being generated in your project.
 The stand-alone connector of this library is feature-gated behind the `inventory` feature.
 To compile a dynamic library for use with the connector inventory use the following command:
 
-```cargo build --release --all-features```
+```
+cargo build --release --all-features
+```
 
 ### Installing the library
 
