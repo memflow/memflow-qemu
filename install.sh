@@ -13,4 +13,3 @@ else
     fi
     cp target/release/libmemflow_qemu_procfs.so ~/.local/lib/memflow
 fi
-

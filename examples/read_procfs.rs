@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use log::{info, Level};
 
-use memflow_core::*;
+use memflow::*;
 
 fn main() {
     simple_logger::init_with_level(Level::Debug).unwrap();

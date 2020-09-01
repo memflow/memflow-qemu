@@ -1,7 +1,6 @@
 use log::info;
 
-use memflow_core::connector::ConnectorArgs;
-use memflow_core::*;
+use memflow::*;
 use memflow_derive::connector;
 
 use core::ffi::c_void;
