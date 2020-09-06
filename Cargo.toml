@@ -1,6 +1,6 @@
 [package]
 name = "memflow-qemu-procfs"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["ko1N <ko1N1337@gmail.com>", "Aurimas Blažulionis <0x60@pm.me>"]
 edition = "2018"
 license = "MIT"
@@ -16,8 +16,8 @@ categories = [ "api-bindings", "memory-management", "os" ]
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-memflow = { version = "0.1", git = "https://github.com/memflow/memflow", branch = "master", features = ["inventory"] }
-memflow-derive = { version = "0.1", git = "https://github.com/memflow/memflow", branch = "master" }
+memflow = { version = "0.1", features = ["inventory"] }
+memflow-derive = { version = "0.1" }
 log = { version = "0.4", default-features = false }
 procfs = "0.7"
 libc = "0.2"
