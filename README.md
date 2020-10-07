@@ -34,6 +34,17 @@ It will place it inside `~/.local/lib/memflow` directory. Add `~/.local/lib` dir
 
 - `name` - the name of the virtual machine (default argument, optional)
 
+## Permissions
+
+The `qemu_procfs` connector requires access to the qemu process via the linux procfs. This means any process which loads this connector requires to have at least ptrace permissions set.
+
+To set ptrace permissions on a binary simply use:
+```bash
+sudo setcap 'CAP_SYS_PTRACE=ep' [filename]
+```
+
+Alternatively you can just run the binary via `sudo`.
+
 ## License
 
 Licensed under MIT License, see [LICENSE](LICENSE).
