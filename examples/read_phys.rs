@@ -5,7 +5,10 @@ use log::{info, Level};
 use memflow::*;
 
 fn main() {
-    simple_logger::init_with_level(Level::Debug).unwrap();
+    simple_logger::SimpleLogger::new()
+        .with_level(Level::Debug.to_level_filter())
+        .init()
+        .unwrap();
 
     let mut conn = match memflow_qemu_procfs::create_connector(&ConnectorArgs::new()) {
         Ok(br) => br,
@@ -14,6 +17,9 @@ fn main() {
             return;
         }
     };
+
+    let metadata = conn.metadata();
+    info!("Received metadata: {:?}", metadata);
 
     let mut mem = vec![0; 8];
     conn.phys_read_raw_into(Address::from(0x1000).into(), &mut mem)
@@ -28,14 +34,10 @@ fn main() {
             .unwrap();
 
         counter += 1;
-        if (counter % 10000) == 0 {
+        if (counter % 10000000) == 0 {
             let elapsed = start.elapsed().as_millis() as f64;
             if elapsed > 0.0 {
                 info!("{} reads/sec", (f64::from(counter)) / elapsed * 1000.0);
-                info!(
-                    "{} reads/frame",
-                    (f64::from(counter)) / elapsed * 1000.0 / 60.0
-                );
                 info!("{} ms/read", elapsed / (f64::from(counter)));
             }
         }
