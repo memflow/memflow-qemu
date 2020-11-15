@@ -4,6 +4,12 @@ This connector implements an interface for Qemu via the Process Filesystem on Li
 
 ## Compilation
 
+### Installing the library
+
+The `./install.sh` script will just compile and install the plugin.
+The connector will be installed to `~/.local/lib/memflow` by default.
+Additionally the `--system` flag can be specified which will install the connector in /usr/lib/memflow as well.
+
 ### Using the crate in a rust project
 
 To use the connector in a rust project just include it in your Cargo.toml
@@ -24,11 +30,6 @@ To compile a dynamic library for use with the connector inventory use the follow
 ```
 cargo build --release --all-features
 ```
-
-### Installing the library
-
-Alternatively to manually placing the library in the `PATH` the connector can be installed with the `install.sh` script.
-It will place it inside `~/.local/lib/memflow` directory. Add `~/.local/lib` directory to `PATH` to use the connector in other memflow projects.
 
 ## Arguments
 
