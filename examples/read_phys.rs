@@ -11,7 +11,7 @@ fn main() {
         .unwrap();
 
     let mut conn =
-        match memflow_qemu_procfs::create_connector(Level::Debug as i32, &ConnectorArgs::new()) {
+        match memflow_qemu_procfs::create_connector(Level::Debug, &ConnectorArgs::new()) {
             Ok(br) => br,
             Err(e) => {
                 info!("couldn't open memory read context: {:?}", e);
