@@ -332,18 +332,9 @@ impl PhysicalMemory for QemuProcfs {
 
 /// Creates a new Qemu Procfs Connector instance.
 #[connector(name = "qemu_procfs", ty = "QemuProcfs")]
-pub fn create_connector(log_level: i32, args: &ConnectorArgs) -> Result<QemuProcfs> {
-    let level = match log_level {
-        0 => Level::Error,
-        1 => Level::Warn,
-        2 => Level::Info,
-        3 => Level::Debug,
-        4 => Level::Trace,
-        _ => Level::Trace,
-    };
-
+pub fn create_connector(log_level: Level, args: &ConnectorArgs) -> Result<QemuProcfs> {
     simple_logger::SimpleLogger::new()
-        .with_level(level.to_level_filter())
+        .with_level(log_level.to_level_filter())
         .init()
         .ok();
 
