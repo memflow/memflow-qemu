@@ -10,14 +10,14 @@ fn main() {
         .init()
         .unwrap();
 
-    let mut conn =
-        match memflow_qemu_procfs::create_connector(Level::Debug, &ConnectorArgs::new()) {
-            Ok(br) => br,
-            Err(e) => {
-                info!("couldn't open memory read context: {:?}", e);
-                return;
-            }
-        };
+    let mut conn = match memflow_qemu_procfs::create_connector(Level::Debug, &ConnectorArgs::new())
+    {
+        Ok(br) => br,
+        Err(e) => {
+            info!("couldn't open memory read context: {:?}", e);
+            return;
+        }
+    };
 
     let metadata = conn.metadata();
     info!("Received metadata: {:?}", metadata);
