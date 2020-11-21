@@ -33,6 +33,8 @@ cargo build --release --all-features
 
 ## Arguments
 
+The following arguments can be used when loading the connector:
+
 - `name` - the name of the virtual machine (default argument, optional)
 
 ## Permissions

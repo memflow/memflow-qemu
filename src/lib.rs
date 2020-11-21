@@ -1,7 +1,7 @@
-use log::info;
+use log::{Level, info};
 
-use memflow::*;
-use memflow_derive::connector;
+use memflow::derive::connector;
+use memflow::prelude::v1::*;
 
 use core::ffi::c_void;
 use libc::{c_ulong, iovec, pid_t, sysconf, _SC_IOV_MAX};
@@ -331,8 +331,22 @@ impl PhysicalMemory for QemuProcfs {
 }
 
 /// Creates a new Qemu Procfs Connector instance.
-#[connector(name = "qemu_procfs")]
-pub fn create_connector(args: &ConnectorArgs) -> Result<QemuProcfs> {
+#[connector(name = "qemu_procfs", ty = "QemuProcfs")]
+pub fn create_connector(log_level: i32, args: &ConnectorArgs) -> Result<QemuProcfs> {
+    let level = match log_level {
+        0 => Level::Error,
+        1 => Level::Warn,
+        2 => Level::Info,
+        3 => Level::Debug,
+        4 => Level::Trace,
+        _ => Level::Trace,
+    };
+
+    simple_logger::SimpleLogger::new()
+        .with_level(level.to_level_filter())
+        .init()
+        .ok();
+
     if let Some(name) = args.get("name").or_else(|| args.get_default()) {
         QemuProcfs::with_guest_name(name)
     } else {
