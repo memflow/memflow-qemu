@@ -1,4 +1,4 @@
-use log::{Level, info};
+use log::{info, Level};
 
 use memflow::derive::connector;
 use memflow::prelude::v1::*;
