@@ -154,7 +154,11 @@ impl QemuProcfs {
             // aarch64 machine
             // It is not known for sure whether this is correct for all ARM machines, but
             // it seems like all memory on qemu ARM is shifted by 1GB and is linear from there.
-            mem_map.push_range(0x40000000u64.into(), map_size.into(), map_base.into());
+            mem_map.push_range(
+                size::gb(1).into(),
+                (size::gb(1) + map_size).into(),
+                map_base.into(),
+            );
         } else {
             // pc-i1440fx
             /*
