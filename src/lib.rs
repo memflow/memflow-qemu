@@ -45,7 +45,7 @@ impl QemuProcfs {
             .map_err(|_| Error::Connector("unable to list procfs processes"))?;
         let prc = prcs
             .iter()
-            .find(|p| p.stat.comm == "qemu-system-x86")
+            .find(|p| p.stat.comm.starts_with("qemu-system-"))
             .ok_or_else(|| Error::Connector("qemu process not found"))?;
         info!("qemu process found with pid {:?}", prc.stat.pid);
 
@@ -57,7 +57,7 @@ impl QemuProcfs {
             .map_err(|_| Error::Connector("unable to list procefs processes"))?;
         let (prc, _) = prcs
             .iter()
-            .filter(|p| p.stat.comm == "qemu-system-x86")
+            .filter(|p| p.stat.comm.starts_with("qemu-system-"))
             .filter_map(|p| {
                 if let Ok(c) = p.cmdline() {
                     Some((p, c))
@@ -90,6 +90,27 @@ impl QemuProcfs {
             .ok_or_else(|| Error::Connector("qemu memory map could not be read"))?;
         info!("qemu memory map found {:?}", map);
 
+        let cmdline = prc
+            .cmdline()
+            .map_err(|_| Error::Connector("unable to parse qemu arguments"))?;
+
+        // find machine architecture and type
+        let machine = if cmdline.len() > 0 && cmdline[0].contains("aarch64") {
+            "aarch64".into()
+        } else {
+            qemu_arg_opt(&cmdline, "-machine", "type").unwrap_or_else(|| "pc".into())
+        };
+
+        info!("qemu process started with machine: {}", machine);
+
+        Self::with_machine_and_mem(prc, &machine, map)
+    }
+
+    fn with_machine_and_mem(
+        prc: &procfs::process::Process,
+        machine: &str,
+        map: &procfs::process::MemoryMap,
+    ) -> Result<Self> {
         let map_base = map.address.0 as usize;
         let map_size = (map.address.1 - map.address.0) as usize;
         info!("qemu memory map size: {:x}", map_size);
@@ -97,17 +118,8 @@ impl QemuProcfs {
         // TODO: instead of hardcoding the memory regions per machine we could just use the hmp to retrieve the proper ranges:
         // sudo virsh qemu-monitor-command win10 --hmp 'info mtree -f' | grep pc\.ram
 
-        // find machine architecture
-        let machine = qemu_arg_opt(
-            &prc.cmdline()
-                .map_err(|_| Error::Connector("unable to parse qemu arguments"))?,
-            "-machine",
-            "type",
-        )
-        .unwrap_or_else(|| "pc".into());
-        info!("qemu process started with machine: {}", machine);
-
         let mut mem_map = MemoryMap::new();
+
         if machine.contains("q35") {
             // q35 -> subtract 2GB
             /*
@@ -138,6 +150,11 @@ impl QemuProcfs {
                     (map_base + size::mb(1)).into(),
                 ); // section: [1mb - max] -> map to 1mb
             }
+        } else if machine.contains("aarch64") {
+            // aarch64 machine
+            // It is not known for sure whether this is correct for all ARM machines, but
+            // it seems like all memory on qemu ARM is shifted by 1GB and is linear from there.
+            mem_map.push_range(0x40000000u64.into(), map_size.into(), map_base.into());
         } else {
             // pc-i1440fx
             /*
