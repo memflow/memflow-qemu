@@ -45,7 +45,7 @@ impl QemuProcfs {
             .map_err(|_| Error::Connector("unable to list procfs processes"))?;
         let prc = prcs
             .iter()
-            .find(|p| p.stat.comm == "qemu-system-x86")
+            .find(|p| p.stat.comm.contains("qemu-system-"))
             .ok_or_else(|| Error::Connector("qemu process not found"))?;
         info!("qemu process found with pid {:?}", prc.stat.pid);
 
@@ -57,7 +57,7 @@ impl QemuProcfs {
             .map_err(|_| Error::Connector("unable to list procefs processes"))?;
         let (prc, _) = prcs
             .iter()
-            .filter(|p| p.stat.comm == "qemu-system-x86")
+            .filter(|p| p.stat.comm.contains("qemu-system-"))
             .filter_map(|p| {
                 if let Ok(c) = p.cmdline() {
                     Some((p, c))
