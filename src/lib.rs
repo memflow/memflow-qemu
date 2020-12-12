@@ -79,7 +79,7 @@ impl QemuProcfs {
         // find biggest memory mapping in qemu process
         let mut maps = prc
             .maps()
-            .map_err(|_| Error::Connector("unable to get qemu memory maps"))?;
+            .map_err(|_| Error::Connector("Unable to retrieve Qemu memory maps. Did u run memflow with the correct access rights (SYS_PTRACE or root)?"))?;
         maps.sort_by(|b, a| {
             (a.address.1 - a.address.0)
                 .partial_cmp(&(b.address.1 - b.address.0))
@@ -87,7 +87,7 @@ impl QemuProcfs {
         });
         let map = maps
             .get(0)
-            .ok_or_else(|| Error::Connector("qemu memory map could not be read"))?;
+            .ok_or_else(|| Error::Connector("Qemu memory map could not be read"))?;
         info!("qemu memory map found {:?}", map);
 
         let map_base = map.address.0 as usize;
@@ -100,7 +100,7 @@ impl QemuProcfs {
         // find machine architecture
         let machine = qemu_arg_opt(
             &prc.cmdline()
-                .map_err(|_| Error::Connector("unable to parse qemu arguments"))?,
+                .map_err(|_| Error::Connector("Unable to parse qemu arguments"))?,
             "-machine",
             "type",
         )

@@ -4,7 +4,11 @@ on:
   release:
     types: [created]
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
+
   generate:
     name: Create artifacts for x86/ubuntu-latest
     runs-on: ubuntu-latest
