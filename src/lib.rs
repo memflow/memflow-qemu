@@ -32,6 +32,21 @@ fn qemu_arg_opt(args: &[String], argname: &str, argopt: &str) -> Option<String> 
     None
 }
 
+fn is_qemu(process: &procfs::process::Process) -> bool {
+    process
+        .cmdline()
+        .ok()
+        .and_then(|cmdline| {
+            cmdline.iter().nth(0).and_then(|cmd| {
+                std::path::Path::new(cmd)
+                    .file_name()
+                    .and_then(|exe| exe.to_str())
+                    .map(|v| v.contains("qemu-system-"))
+            })
+        })
+        .unwrap_or(false)
+}
+
 #[derive(Clone)]
 pub struct QemuProcfs {
     pub pid: pid_t,
@@ -45,7 +60,7 @@ impl QemuProcfs {
             .map_err(|_| Error::Connector("unable to list procfs processes"))?;
         let prc = prcs
             .iter()
-            .find(|p| p.stat.comm == "qemu-system-x86")
+            .find(|p| is_qemu(p))
             .ok_or_else(|| Error::Connector("qemu process not found"))?;
         info!("qemu process found with pid {:?}", prc.stat.pid);
 
@@ -57,7 +72,7 @@ impl QemuProcfs {
             .map_err(|_| Error::Connector("unable to list procefs processes"))?;
         let (prc, _) = prcs
             .iter()
-            .filter(|p| p.stat.comm == "qemu-system-x86")
+            .filter(|p| is_qemu(p))
             .filter_map(|p| {
                 if let Ok(c) = p.cmdline() {
                     Some((p, c))
