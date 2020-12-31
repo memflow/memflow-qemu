@@ -9,7 +9,7 @@ env:
 
 jobs:
 
-  generate:
+  generate_ubuntu_x86-64:
     name: Create artifacts for x86/ubuntu-latest
     runs-on: ubuntu-latest
     steps:
