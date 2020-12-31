@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Build artifacts
-        run: cargo build --workspace --all-features --verbose
+        run: cargo build --release --workspace --all-features --verbose
       - name: Upload build artifacts
         uses: skx/github-action-publish-binaries@master
         env:
