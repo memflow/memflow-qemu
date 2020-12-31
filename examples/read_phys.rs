@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use log::{info, Level};
 
-use memflow::*;
+use memflow::prelude::v1::*;
 
 fn main() {
     simple_logger::SimpleLogger::new()
