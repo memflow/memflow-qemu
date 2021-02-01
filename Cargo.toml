@@ -16,7 +16,7 @@ categories = [ "api-bindings", "memory-management", "os" ]
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-memflow = { git = "https://github.com/memflow/memflow", branch = "next", features = ["inventory"] }
+memflow = { git = "https://github.com/memflow/memflow", branch = "os-layers", features = ["plugins"] }
 log = { version = "0.4", default-features = false }
 simple_logger = "1.0"
 procfs = "0.7"
