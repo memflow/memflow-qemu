@@ -36,7 +36,7 @@ fn is_qemu(process: &procfs::process::Process) -> bool {
         .cmdline()
         .ok()
         .and_then(|cmdline| {
-            cmdline.iter().nth(0).and_then(|cmd| {
+            cmdline.get(0).and_then(|cmd| {
                 std::path::Path::new(cmd)
                     .file_name()
                     .and_then(|exe| exe.to_str())
@@ -60,8 +60,7 @@ impl QemuProcfs {
                 .log_error("unable to list procfs processes")
         })?;
         let prc = prcs.iter().find(|p| is_qemu(p)).ok_or_else(|| {
-            Error(ErrorOrigin::Connector, ErrorKind::NotFound)
-                .log_error("qemu process not found")
+            Error(ErrorOrigin::Connector, ErrorKind::NotFound).log_error("qemu process not found")
         })?;
         info!("qemu process found with pid {:?}", prc.stat.pid);
 
@@ -118,7 +117,7 @@ impl QemuProcfs {
         })?;
 
         // find machine architecture and type
-        let machine = if cmdline.len() > 0 && cmdline[0].contains("aarch64") {
+        let machine = if !cmdline.is_empty() && cmdline[0].contains("aarch64") {
             "aarch64".into()
         } else {
             qemu_arg_opt(&cmdline, "-machine", "type").unwrap_or_else(|| "pc".into())
