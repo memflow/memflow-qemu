@@ -55,20 +55,24 @@ pub struct QemuProcfs {
 
 impl QemuProcfs {
     pub fn new() -> Result<Self> {
-        let prcs = procfs::process::all_processes()
-            .map_err(|_| Error::Connector("unable to list procfs processes"))?;
-        let prc = prcs
-            .iter()
-            .find(|p| is_qemu(p))
-            .ok_or_else(|| Error::Connector("qemu process not found"))?;
+        let prcs = procfs::process::all_processes().map_err(|_| {
+            Error(ErrorOrigin::Connector, ErrorKind::UnableToReadDir)
+                .log_error("unable to list procfs processes")
+        })?;
+        let prc = prcs.iter().find(|p| is_qemu(p)).ok_or_else(|| {
+            Error(ErrorOrigin::Connector, ErrorKind::NotFound)
+                .log_error("qemu process not found")
+        })?;
         info!("qemu process found with pid {:?}", prc.stat.pid);
 
         Self::with_process(prc)
     }
 
     pub fn with_guest_name(name: &str) -> Result<Self> {
-        let prcs = procfs::process::all_processes()
-            .map_err(|_| Error::Connector("unable to list procefs processes"))?;
+        let prcs = procfs::process::all_processes().map_err(|_| {
+            Error(ErrorOrigin::Connector, ErrorKind::UnableToReadDir)
+                .log_error("unable to list procfs processes")
+        })?;
         let (prc, _) = prcs
             .iter()
             .filter(|p| is_qemu(p))
@@ -80,7 +84,10 @@ impl QemuProcfs {
                 }
             })
             .find(|(_, c)| qemu_arg_opt(c, "-name", "guest").unwrap_or_default() == name)
-            .ok_or_else(|| Error::Connector("qemu process not found"))?;
+            .ok_or_else(|| {
+                Error(ErrorOrigin::Connector, ErrorKind::NotFound)
+                    .log_error("qemu process not found")
+            })?;
         info!(
             "qemu process with name {} found with pid {:?}",
             name, prc.stat.pid
@@ -93,20 +100,22 @@ impl QemuProcfs {
         // find biggest memory mapping in qemu process
         let mut maps = prc
             .maps()
-            .map_err(|_| Error::Connector("Unable to retrieve Qemu memory maps. Did u run memflow with the correct access rights (SYS_PTRACE or root)?"))?;
+            .map_err(|_| Error(ErrorOrigin::Connector, ErrorKind::UnableToReadDir).log_error("Unable to retrieve Qemu memory maps. Did u run memflow with the correct access rights (SYS_PTRACE or root)?"))?;
         maps.sort_by(|b, a| {
             (a.address.1 - a.address.0)
                 .partial_cmp(&(b.address.1 - b.address.0))
                 .unwrap()
         });
-        let map = maps
-            .get(0)
-            .ok_or_else(|| Error::Connector("Qemu memory map could not be read"))?;
+        let map = maps.get(0).ok_or_else(|| {
+            Error(ErrorOrigin::Connector, ErrorKind::UnableToReadDir)
+                .log_error("Qemu memory map could not be read")
+        })?;
         info!("qemu memory map found {:?}", map);
 
-        let cmdline = prc
-            .cmdline()
-            .map_err(|_| Error::Connector("unable to parse qemu arguments"))?;
+        let cmdline = prc.cmdline().map_err(|_| {
+            Error(ErrorOrigin::Connector, ErrorKind::UnableToReadFile)
+                .log_error("unable to parse qemu arguments")
+        })?;
 
         // find machine architecture and type
         let machine = if cmdline.len() > 0 && cmdline[0].contains("aarch64") {
@@ -243,12 +252,12 @@ impl QemuProcfs {
 
     fn vm_error() -> Error {
         match unsafe { *libc::__errno_location() } {
-            libc::EFAULT => Error::Connector("process_vm_readv failed: EFAULT (remote memory address is invalid)"),
-            libc::ENOMEM => Error::Connector("process_vm_readv failed: ENOMEM (unable to allocate memory for internal copies)"),
-            libc::EPERM => Error::Connector("process_vm_readv failed: EPERM (insifficient permissions to access the target address space)"),
-            libc::ESRCH => Error::Connector("process_vm_readv failed: ESRCH (process not found)"),
-            libc::EINVAL => Error::Connector("process_vm_readv failed: EINVAL (invalid value)"),
-            _ => Error::Connector("process_vm_readv failed: unknown error")
+            libc::EFAULT => Error(ErrorOrigin::Connector, ErrorKind::UnableToReadMemory).log_error("process_vm_readv failed: EFAULT (remote memory address is invalid)"),
+            libc::ENOMEM => Error(ErrorOrigin::Connector, ErrorKind::UnableToReadMemory).log_error("process_vm_readv failed: ENOMEM (unable to allocate memory for internal copies)"),
+            libc::EPERM => Error(ErrorOrigin::Connector, ErrorKind::UnableToReadMemory).log_error("process_vm_readv failed: EPERM (insifficient permissions to access the target address space)"),
+            libc::ESRCH => Error(ErrorOrigin::Connector, ErrorKind::UnableToReadMemory).log_error("process_vm_readv failed: ESRCH (process not found)"),
+            libc::EINVAL => Error(ErrorOrigin::Connector, ErrorKind::UnableToReadMemory).log_error("process_vm_readv failed: EINVAL (invalid value)"),
+            _ => Error(ErrorOrigin::Connector, ErrorKind::UnableToReadMemory).log_error("process_vm_readv failed: unknown error")
         }
     }
 }
