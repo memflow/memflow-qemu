@@ -74,7 +74,7 @@ Or via libvirt:
     <qemu:arg value="unix:/tmp/qmp-my-vm.sock,server,nowait"/>
   </qemu:commandline>
 </domain>
-...
+```
 
 Please refer to the qemu qmp manual for more information about how to configure this feature.
 
