@@ -62,9 +62,23 @@ Alternatively a tcp server can be exposed:
 -qmp tcp:localhost:12345,server,nowait
 ```
 
+Or via libvirt:
+```xml
+<domain xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0" type="kvm">
+
+...
+
+  </devices>
+  <qemu:commandline>
+    <qemu:arg value="-qmp"/>
+    <qemu:arg value="unix:/tmp/qmp-my-vm.sock,server,nowait"/>
+  </qemu:commandline>
+</domain>
+...
+
 Please refer to the qemu qmp manual for more information about how to configure this feature.
 
-In case qmp is not active or could not be fetched the connector falls back to hard-coded mapping tables for specific qemu machine types.
+In case qmp is not active or could not be fetched, the connector falls back to hard-coded mapping tables for specific qemu machine types.
 
 ## Running Examples
 
