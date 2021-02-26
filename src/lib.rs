@@ -8,6 +8,13 @@ use memflow::prelude::v1::*;
 mod qemu_args;
 use qemu_args::{is_qemu, qemu_arg_opt};
 
+#[cfg(feature = "qmp")]
+#[macro_use]
+extern crate scan_fmt;
+
+mod mem_map;
+use mem_map::qemu_mem_mappings;
+
 #[derive(Clone, Copy)]
 #[repr(transparent)]
 struct IoSendVec(iovec);
@@ -73,116 +80,26 @@ impl QemuProcfs {
                 .partial_cmp(&(b.address.1 - b.address.0))
                 .unwrap()
         });
-        let map = maps.get(0).ok_or_else(|| {
+        let qemu_map = maps.get(0).ok_or_else(|| {
             Error(ErrorOrigin::Connector, ErrorKind::UnableToReadDir)
                 .log_error("Qemu memory map could not be read")
         })?;
-        info!("qemu memory map found {:?}", map);
+        info!("qemu memory map found {:?}", qemu_map);
 
         let cmdline = prc.cmdline().map_err(|_| {
             Error(ErrorOrigin::Connector, ErrorKind::UnableToReadFile)
                 .log_error("unable to parse qemu arguments")
         })?;
 
-        // find machine architecture and type
-        let machine = if !cmdline.is_empty() && cmdline[0].contains("aarch64") {
-            "aarch64".into()
-        } else {
-            qemu_arg_opt(&cmdline, "-machine", "type").unwrap_or_else(|| "pc".into())
-        };
-
-        info!("qemu process started with machine: {}", machine);
-
-        Self::with_machine_and_mem(prc, &machine, map)
+        Self::with_cmdline_and_mem(prc, &cmdline, qemu_map)
     }
 
-    fn with_machine_and_mem(
+    fn with_cmdline_and_mem(
         prc: &procfs::process::Process,
-        machine: &str,
-        map: &procfs::process::MemoryMap,
+        cmdline: &[String],
+        qemu_map: &procfs::process::MemoryMap,
     ) -> Result<Self> {
-        let map_base = map.address.0 as usize;
-        let map_size = (map.address.1 - map.address.0) as usize;
-        info!("qemu memory map size: {:x}", map_size);
-
-        // TODO: instead of hardcoding the memory regions per machine we could just use the hmp to retrieve the proper ranges:
-        // sudo virsh qemu-monitor-command win10 --hmp 'info mtree -f' | grep pc\.ram
-
-        let mut mem_map = MemoryMap::new();
-
-        if machine.contains("q35") {
-            // q35 -> subtract 2GB
-            /*
-            0000000000000000-000000000009ffff (prio 0, ram): pc.ram KVM
-            00000000000c0000-00000000000c3fff (prio 0, rom): pc.ram @00000000000c0000 KVM
-            0000000000100000-000000007fffffff (prio 0, ram): pc.ram @0000000000100000 KVM
-            0000000100000000-000000047fffffff (prio 0, ram): pc.ram @0000000080000000 KVM
-            */
-            // we add all regions additionally shifted to the proper qemu memory map address
-            mem_map.push_range(Address::NULL, size::kb(640).into(), map_base.into()); // section: [start - 640kb] -> map to start
-                                                                                      // If larger than this specific size, second half after 2 gigs gets moved over past 4gb
-                                                                                      // TODO: Probably the same happens with i1440-fx
-            if map_size >= size::mb(2816) {
-                mem_map.push_range(
-                    size::mb(1).into(),
-                    size::gb(2).into(),
-                    (map_base + size::mb(1)).into(),
-                ); // section: [1mb - 2gb] -> map to 1mb
-                mem_map.push_range(
-                    size::gb(4).into(),
-                    (map_size + size::gb(2)).into(),
-                    (map_base + size::gb(2)).into(),
-                ); // section: [4gb - max] -> map to 2gb
-            } else {
-                mem_map.push_range(
-                    size::mb(1).into(),
-                    map_size.into(),
-                    (map_base + size::mb(1)).into(),
-                ); // section: [1mb - max] -> map to 1mb
-            }
-        } else if machine.contains("aarch64") {
-            // aarch64 machine
-            // It is not known for sure whether this is correct for all ARM machines, but
-            // it seems like all memory on qemu ARM is shifted by 1GB and is linear from there.
-            mem_map.push_range(
-                size::gb(1).into(),
-                (size::gb(1) + map_size).into(),
-                map_base.into(),
-            );
-        } else {
-            // pc-i1440fx
-            /*
-            0000000000000000-00000000000bffff (prio 0, ram): pc.ram KVM
-            00000000000c0000-00000000000cafff (prio 0, rom): pc.ram @00000000000c0000 KVM
-            00000000000cb000-00000000000cdfff (prio 0, ram): pc.ram @00000000000cb000 KVM
-            00000000000ce000-00000000000e7fff (prio 0, rom): pc.ram @00000000000ce000 KVM
-            00000000000e8000-00000000000effff (prio 0, ram): pc.ram @00000000000e8000 KVM
-            00000000000f0000-00000000000fffff (prio 0, rom): pc.ram @00000000000f0000 KVM
-            0000000000100000-00000000bfffffff (prio 0, ram): pc.ram @0000000000100000 KVM
-            0000000100000000-000000023fffffff (prio 0, ram): pc.ram @00000000c0000000 KVM
-            */
-            mem_map.push_range(Address::NULL, size::kb(768).into(), map_base.into()); // section: [start - 768kb] -> map to start
-            mem_map.push_range(
-                size::kb(812).into(),
-                size::kb(824).into(),
-                (map_base + size::kb(812)).into(),
-            ); // section: [768kb - 812kb] -> map to 768kb
-            mem_map.push_range(
-                size::kb(928).into(),
-                size::kb(960).into(),
-                (map_base + size::kb(928)).into(),
-            ); // section: [928kb - 960kb] -> map to 928kb
-            mem_map.push_range(
-                size::mb(1).into(),
-                size::gb(3).into(),
-                (map_base + size::mb(1)).into(),
-            ); // section: [1mb - 3gb] -> map to 1mb
-            mem_map.push_range(
-                size::gb(4).into(),
-                (map_size + size::gb(1)).into(),
-                (map_base + size::gb(3)).into(),
-            ); // section: [4gb - max] -> map to 3gb
-        }
+        let mem_map = qemu_mem_mappings(&cmdline, qemu_map)?;
         info!("qemu machine mem_map: {:?}", mem_map);
 
         let iov_max = unsafe { sysconf(_SC_IOV_MAX) } as usize;

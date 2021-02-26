@@ -13,6 +13,7 @@ For more information about the Inventory see the ps_inventory.rs example in this
 or check out the documentation at:
 https://docs.rs/memflow/0.1.5/memflow/connector/inventory/index.html
 */
+use std::env::args;
 
 use log::{info, Level};
 
@@ -25,7 +26,13 @@ fn main() {
         .init()
         .unwrap();
 
-    let connector = memflow_qemu_procfs::create_connector(&Args::default(), Level::Debug)
+    let connector_args = if let Some(arg) = args().nth(1) {
+        Args::parse(arg.as_ref()).expect("unable to parse command line arguments")
+    } else {
+        Args::default()
+    };
+
+    let connector = memflow_qemu_procfs::create_connector(&connector_args, Level::Debug)
         .expect("unable to create qemu_procfs connector");
 
     let mut os = Win32Kernel::builder(connector)

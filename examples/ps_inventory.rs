@@ -15,6 +15,8 @@ Make sure they can be found in one of the following locations:
 
 or in any other path found in the official memflow documentation.
 */
+use std::env::args;
+
 use log::{info, Level};
 
 use memflow::prelude::v1::*;
@@ -25,9 +27,15 @@ fn main() {
         .init()
         .unwrap();
 
+    let connector_args = if let Some(arg) = args().nth(1) {
+        Args::parse(arg.as_ref()).expect("unable to parse command line arguments")
+    } else {
+        Args::default()
+    };
+
     let inventory = Inventory::scan();
     let connector = inventory
-        .create_connector("qemu_procfs", None, &Args::default())
+        .create_connector("qemu_procfs", None, &connector_args)
         .expect("unable to create qemu_procfs connector");
     let mut os = inventory
         .create_os("win32", Some(connector), &Args::default())

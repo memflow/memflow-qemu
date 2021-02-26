@@ -48,7 +48,25 @@ sudo setcap 'CAP_SYS_PTRACE=ep' [filename]
 
 Alternatively you can just run the binary via `sudo`.
 
-## Examples
+## Memory Mappings
+
+The connector supports dynamic acquisition of the qemu memory mappings by utilizing the [qemu qmp protocol](https://qemu.readthedocs.io/en/latest/interop/qemu-qmp-ref.html).
+
+To enable qmp on a virtual machine simply add this to the qemu command line:
+```
+-qmp unix:/tmp/qmp-my-vm.sock,server,nowait
+```
+
+Alternatively a tcp server can be exposed:
+```
+-qmp tcp:localhost:12345,server,nowait
+```
+
+Please refer to the qemu qmp manual for more information about how to configure this feature.
+
+In case qmp is not active or could not be fetched the connector falls back to hard-coded mapping tables for specific qemu machine types.
+
+## Running Examples
 
 Analog to the examples found in the main memflow repository examples can be run via:
 

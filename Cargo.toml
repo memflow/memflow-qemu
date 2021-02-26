@@ -21,6 +21,8 @@ log = { version = "0.4", default-features = false }
 simple_logger = "1.0"
 procfs = "0.7"
 libc = "0.2"
+qapi = { version = "0.7.0", features = ["qmp"], optional = true }
+scan_fmt = { version = "0.2", optional = true }
 
 [dev-dependencies]
 clap = "2.33"
@@ -30,8 +32,9 @@ memflow-win32 = { git = "https://github.com/memflow/memflow", branch = "next" }
 lto = true
 
 [features]
-default = []
+default = ["qmp"]
 inventory = []
+qmp = ["qapi", "scan_fmt"]
 
 [[example]]
 name = "read_phys"
