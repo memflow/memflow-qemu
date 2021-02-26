@@ -125,7 +125,7 @@ fn qmp_get_mtree_stream<S: Read + Write + Clone>(stream: S) -> Result<Vec<Mappin
         })
         .map_err(|err| Error(ErrorOrigin::Connector, ErrorKind::Configuration).log_error(err))?;
 
-    qmp_parse_mtree(&mtreestr)
+    Ok(qmp_parse_mtree(&mtreestr))
 }
 
 #[cfg(not(feature = "qmp"))]
@@ -137,7 +137,7 @@ fn qmp_get_mtree(cmdline: &[String]) -> Result<Vec<Mapping>> {
 }
 
 #[cfg(feature = "qmp")]
-fn qmp_parse_mtree(mtreestr: &str) -> Result<Vec<Mapping>> {
+fn qmp_parse_mtree(mtreestr: &str) -> Vec<Mapping> {
     let mut lines = mtreestr
         .lines()
         .filter(|l| l.contains("pc.ram"))
@@ -157,7 +157,7 @@ fn qmp_parse_mtree(mtreestr: &str) -> Result<Vec<Mapping>> {
             ))
         }
     }
-    Ok(mappings)
+    mappings
 }
 
 fn qemu_get_mtree_fallback(machine: &str, qemu_map: &procfs::process::MemoryMap) -> Vec<Mapping> {
@@ -277,7 +277,7 @@ mod tests {
             0000000000100000-000000007fffffff (prio 0, ram): pc.ram @0000000000100000 KVM
             0000000100000000-000000047fffffff (prio 0, ram): pc.ram @0000000080000000 KVM"#;
 
-        let mappings = qmp_parse_mtree(mtreestr).unwrap();
+        let mappings = qmp_parse_mtree(mtreestr);
 
         assert_eq!(mappings.len(), 4);
 
