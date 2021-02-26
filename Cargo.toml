@@ -24,6 +24,7 @@ libc = "0.2"
 
 [dev-dependencies]
 clap = "2.33"
+memflow-win32 = { git = "https://github.com/memflow/memflow", branch = "next" }
 
 [profile.release]
 lto = true
@@ -35,3 +36,11 @@ inventory = []
 [[example]]
 name = "read_phys"
 path = "examples/read_phys.rs"
+
+[[example]]
+name = "ps_win32"
+path = "examples/ps_win32.rs"
+
+[[example]]
+name = "ps_inventory"
+path = "examples/ps_inventory.rs"

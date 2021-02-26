@@ -48,6 +48,18 @@ sudo setcap 'CAP_SYS_PTRACE=ep' [filename]
 
 Alternatively you can just run the binary via `sudo`.
 
+## Examples
+
+Analog to the examples found in the main memflow repository examples can be run via:
+
+```bash
+RUST_SETPTRACE=1 cargo run --example read_phys --release
+RUST_SETPTRACE=1 cargo run --example ps_win32 --release
+RUST_SETPTRACE=1 cargo run --example ps_inventory --release
+```
+
+For more information about `RUST_SETPTRACE` and how to run examples see the [running-examples](https://github.com/memflow/memflow#running-examples) section in the main memflow repository. 
+
 ## License
 
 Licensed under MIT License, see [LICENSE](LICENSE).

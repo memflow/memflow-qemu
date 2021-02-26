@@ -1,3 +1,8 @@
+/*!
+This example shows how to use the qemu_procfs connector to read physical_memory
+from a target machine. It also evaluates the number of read cycles per second
+and prints them to stdout.
+*/
 use std::time::Instant;
 
 use log::{info, Level};
@@ -10,22 +15,25 @@ fn main() {
         .init()
         .unwrap();
 
-    let mut conn = memflow_qemu_procfs::create_connector(&Args::new(), Level::Debug).unwrap();
+    let mut connector = memflow_qemu_procfs::create_connector(&Args::default(), Level::Debug)
+        .expect("unable to create qemu_procfs connector");
 
-    let metadata = conn.metadata();
+    let metadata = connector.metadata();
     info!("Received metadata: {:?}", metadata);
 
     let mut mem = vec![0; 8];
-    conn.phys_read_raw_into(Address::from(0x1000).into(), &mut mem)
-        .unwrap();
+    connector
+        .phys_read_raw_into(Address::from(0x1000).into(), &mut mem)
+        .expect("unable to read physical memory");
     info!("Received memory: {:?}", mem);
 
     let start = Instant::now();
     let mut counter = 0;
     loop {
         let mut buf = vec![0; 0x1000];
-        conn.phys_read_raw_into(Address::from(0x1000).into(), &mut buf)
-            .unwrap();
+        connector
+            .phys_read_raw_into(Address::from(0x1000).into(), &mut buf)
+            .expect("unable to read physical memory");
 
         counter += 1;
         if (counter % 10000000) == 0 {
