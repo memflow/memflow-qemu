@@ -277,9 +277,12 @@ impl CpuState for QemuProcfs {
     // TODO:
 }
 
-/// Creates a new Qemu Procfs Connector instance.
-#[connector(name = "qemu_procfs")]
-pub fn create_connector(args: &Args, log_level: Level) -> Result<ConnectorInstance> {
+impl CpuState for &mut QemuProcfs {
+    // TODO:
+}
+
+/// Creates a new Qemu Procfs instance.
+pub fn create_connector(args: &Args, log_level: Level) -> Result<QemuProcfs> {
     simple_logger::SimpleLogger::new()
         .with_level(log_level.to_level_filter())
         .init()
@@ -293,7 +296,7 @@ pub fn create_connector(args: &Args, log_level: Level) -> Result<ConnectorInstan
             "the name of the qemu virtual machine (specified with -name when starting qemu)",
         ));
 
-    let connector = match validator.validate(&args) {
+    match validator.validate(&args) {
         Ok(_) => {
             if let Some(name) = args.get("name").or_else(|| args.get_default()) {
                 QemuProcfs::with_guest_name(name)
@@ -308,8 +311,13 @@ pub fn create_connector(args: &Args, log_level: Level) -> Result<ConnectorInstan
             );
             Err(err)
         }
-    }?;
+    }
+}
 
+/// Creates a new Qemu Procfs Connector instance.
+#[connector(name = "qemu_procfs")]
+pub fn create_connector_instance(args: &Args, log_level: Level) -> Result<ConnectorInstance> {
+    let connector = create_connector(args, log_level)?;
     let instance = ConnectorInstance::builder(connector)
         .enable_cpu_state()
         .build();
