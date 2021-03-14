@@ -258,9 +258,28 @@ impl PhysicalMemory for QemuProcfs {
     }
 }
 
+impl<'a> ConnectorCpuStateInner<'a>
+    for QemuProcfs
+{
+    type CpuStateType = &'a mut QemuProcfs;
+    type IntoCpuStateType = QemuProcfs;
+
+    fn cpu_state(&'a mut self) -> memflow::error::Result<Self::CpuStateType> {
+        Ok(self)
+    }
+
+    fn into_cpu_state(self) -> memflow::error::Result<Self::IntoCpuStateType> {
+        Ok(self)
+    }
+}
+
+impl CpuState for QemuProcfs {
+    // TODO:
+}
+
 /// Creates a new Qemu Procfs Connector instance.
 #[connector(name = "qemu_procfs")]
-pub fn create_connector(args: &Args, log_level: Level) -> Result<impl PhysicalMemory + Clone> {
+pub fn create_connector(args: &Args, log_level: Level) -> Result<ConnectorInstance> {
     simple_logger::SimpleLogger::new()
         .with_level(log_level.to_level_filter())
         .init()
@@ -274,7 +293,7 @@ pub fn create_connector(args: &Args, log_level: Level) -> Result<impl PhysicalMe
             "the name of the qemu virtual machine (specified with -name when starting qemu)",
         ));
 
-    match validator.validate(&args) {
+    let connector = match validator.validate(&args) {
         Ok(_) => {
             if let Some(name) = args.get("name").or_else(|| args.get_default()) {
                 QemuProcfs::with_guest_name(name)
@@ -289,5 +308,10 @@ pub fn create_connector(args: &Args, log_level: Level) -> Result<impl PhysicalMe
             );
             Err(err)
         }
-    }
+    }?;
+
+    let instance = ConnectorInstance::builder(connector)
+        .enable_cpu_state()
+        .build();
+    Ok(instance)
 }
