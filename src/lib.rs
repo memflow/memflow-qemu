@@ -258,9 +258,7 @@ impl PhysicalMemory for QemuProcfs {
     }
 }
 
-impl<'a> ConnectorCpuStateInner<'a>
-    for QemuProcfs
-{
+impl<'a> ConnectorCpuStateInner<'a> for QemuProcfs {
     type CpuStateType = &'a mut QemuProcfs;
     type IntoCpuStateType = QemuProcfs;
 
