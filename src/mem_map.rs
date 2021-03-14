@@ -1,21 +1,3 @@
-/*
-0000000000000000-00000000000bffff (prio 0, ram): pc.ram KVM
-00000000000c0000-00000000000cafff (prio 0, rom): pc.ram @00000000000c0000 KVM
-00000000000cb000-00000000000cdfff (prio 0, ram): pc.ram @00000000000cb000 KVM
-00000000000ce000-00000000000e7fff (prio 0, rom): pc.ram @00000000000ce000 KVM
-00000000000e8000-00000000000effff (prio 0, ram): pc.ram @00000000000e8000 KVM
-00000000000f0000-00000000000fffff (prio 0, rom): pc.ram @00000000000f0000 KVM
-0000000000100000-00000000bfffffff (prio 0, ram): pc.ram @0000000000100000 KVM
-0000000100000000-000000023fffffff (prio 0, ram): pc.ram @00000000c0000000 KVM
-
-mem_map.push_range(Address::NULL, size::kb(768).into(), map_base.into()); // section: [start - 768kb] -> map to start
-mem_map.push_range(
-    size::kb(812).into(),
-    size::kb(824).into(),
-    (map_base + size::kb(812)).into(),
-); // section: [768kb - 812kb] -> map to 768kb
-*/
-
 use log::info;
 
 use crate::qemu_args::qemu_arg_opt;
@@ -138,18 +120,24 @@ fn qmp_get_mtree(cmdline: &[String]) -> Result<Vec<Mapping>> {
 
 #[cfg(feature = "qmp")]
 fn qmp_parse_mtree(mtreestr: &str) -> Vec<Mapping> {
-    let mut lines = mtreestr
+    let mut mappings = Vec::new();
+    for line in mtreestr
         .lines()
         .filter(|l| l.contains("pc.ram"))
         .map(|l| l.trim())
-        .collect::<Vec<_>>();
-    lines.sort_unstable();
-    lines.dedup();
-
-    let mut mappings = Vec::new();
-    for line in lines.iter() {
+    {
         let range = scan_fmt_some!(line, "{x}-{x} {*[^:]}: pc.ram {*[@]}{x} KVM", [hex u64], [hex u64], [hex u64]);
         if range.0.is_some() && range.1.is_some() {
+            // on some systems the second list of memory mappings (mem-container-smram)
+            // does not exactly line up with the first mappings (system).
+            // hence we clear the list here again in case we encounter a new set of mappings.
+            if range.2.is_none() {
+                mappings.clear();
+            }
+
+            // add the mapping here, in case the third entry is None
+            // we just add the first start mapping here.
+            // this should only ever happen for the first entry which starts/remaps at/to 0.
             mappings.push(Mapping::new(
                 range.0.unwrap(),
                 range.1.unwrap() + 1,
