@@ -256,6 +256,10 @@ impl PhysicalMemory for QemuProcfs {
             readonly: false,
         }
     }
+
+    fn set_mem_map(&mut self, mem_map: MemoryMap<(Address, usize)>) {
+        self.mem_map.merge(mem_map)
+    }
 }
 
 impl<'a> ConnectorCpuStateInner<'a> for QemuProcfs {
