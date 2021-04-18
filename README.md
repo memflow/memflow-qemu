@@ -1,6 +1,6 @@
 # memflow-qemu-procfs
 
-This connector implements an interface for Qemu via the Process Filesystem on Linux.
+The qemu-procfs connector implements a memflow plugin interface for Qemu on top of the Process Filesystem on Linux.
 
 ## Compilation
 

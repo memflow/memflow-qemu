@@ -283,6 +283,16 @@ impl CpuState for &mut QemuProcfs {
     // TODO:
 }
 
+fn validator() -> ArgsValidator {
+    ArgsValidator::new()
+        .arg(ArgDescriptor::new("default").description(
+            "the name of the qemu virtual machine (specified with -name when starting qemu)",
+        ))
+        .arg(ArgDescriptor::new("name").description(
+            "the name of the qemu virtual machine (specified with -name when starting qemu)",
+        ))
+}
+
 /// Creates a new Qemu Procfs instance.
 pub fn create_connector(args: &Args, log_level: Level) -> Result<QemuProcfs> {
     simple_logger::SimpleLogger::new()
@@ -290,14 +300,7 @@ pub fn create_connector(args: &Args, log_level: Level) -> Result<QemuProcfs> {
         .init()
         .ok();
 
-    let validator = ArgsValidator::new()
-        .arg(ArgDescriptor::new("default").description(
-            "the name of the qemu virtual machine (specified with -name when starting qemu)",
-        ))
-        .arg(ArgDescriptor::new("name").description(
-            "the name of the qemu virtual machine (specified with -name when starting qemu)",
-        ));
-
+    let validator = validator();
     match validator.validate(&args) {
         Ok(_) => {
             if let Some(name) = args.get("name").or_else(|| args.get_default()) {
@@ -317,7 +320,7 @@ pub fn create_connector(args: &Args, log_level: Level) -> Result<QemuProcfs> {
 }
 
 /// Creates a new Qemu Procfs Connector instance.
-#[connector(name = "qemu_procfs", target_list_fn = "connector_target_list")]
+#[connector(name = "qemu_procfs", help_fn = "help", target_list_fn = "target_list")]
 pub fn create_connector_instance(args: &Args, log_level: Level) -> Result<ConnectorInstance> {
     let connector = create_connector(args, log_level)?;
     let instance = ConnectorInstance::builder(connector)
@@ -326,8 +329,26 @@ pub fn create_connector_instance(args: &Args, log_level: Level) -> Result<Connec
     Ok(instance)
 }
 
+/// Retrieve the help text for the Qemu Procfs Connector.
+pub fn help() -> String {
+    let validator = validator();
+    format!(
+        "\
+The `qemu_procfs` connector implements a memflow plugin interface
+for Qemu on top of the Process Filesystem on Linux.
+
+This connector requires access to the qemu process via the linux procfs.
+This means any process which loads this connector requires
+to have at least ptrace permissions set.
+
+Available arguments are:
+{}",
+        validator.to_string()
+    )
+}
+
 /// Retrieve a list of all currently available Qemu targets.
-pub fn connector_target_list() -> Result<Vec<TargetInfo>> {
+pub fn target_list() -> Result<Vec<TargetInfo>> {
     Ok(procfs::process::all_processes()
         .map_err(|_| {
             Error(ErrorOrigin::Connector, ErrorKind::UnableToReadDir)
