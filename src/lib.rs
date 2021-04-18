@@ -317,11 +317,28 @@ pub fn create_connector(args: &Args, log_level: Level) -> Result<QemuProcfs> {
 }
 
 /// Creates a new Qemu Procfs Connector instance.
-#[connector(name = "qemu_procfs")]
+#[connector(name = "qemu_procfs", target_list_fn = "connector_target_list")]
 pub fn create_connector_instance(args: &Args, log_level: Level) -> Result<ConnectorInstance> {
     let connector = create_connector(args, log_level)?;
     let instance = ConnectorInstance::builder(connector)
         .enable_cpu_state()
         .build();
     Ok(instance)
+}
+
+/// Retrieve a list of all currently available Qemu targets.
+pub fn connector_target_list() -> Result<Vec<TargetInfo>> {
+    Ok(procfs::process::all_processes()
+        .map_err(|_| {
+            Error(ErrorOrigin::Connector, ErrorKind::UnableToReadDir)
+                .log_error("unable to list procfs processes")
+        })?
+        .iter()
+        .filter(|p| is_qemu(p))
+        .filter_map(|p| p.cmdline().ok())
+        .filter_map(|c| qemu_arg_opt(&c, "-name", "guest"))
+        .map(|n| TargetInfo {
+            name: ReprCString::from(n),
+        })
+        .collect::<Vec<_>>())
 }
