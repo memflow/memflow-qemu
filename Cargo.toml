@@ -16,17 +16,20 @@ categories = [ "api-bindings", "memory-management", "os" ]
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-memflow = { git = "https://github.com/memflow/memflow", branch = "next", features = ["plugins"] }
+#memflow = { git = "https://github.com/memflow/memflow", branch = "next", features = ["plugins"] }
+memflow = { path = "../memflow/memflow", features = ["plugins"] }
 log = { version = "0.4", default-features = false }
 simple_logger = "1.0"
 procfs = "0.7"
 libc = "0.2"
 qapi = { version = "0.7.0", features = ["qmp"], optional = true }
 scan_fmt = { version = "0.2", optional = true }
+cglue = { git = "ssh://git@github.com/h33p/cglue.git", branch = "main" } # TODO: removeme
 
 [dev-dependencies]
 clap = "2.33"
-memflow-win32 = { git = "https://github.com/memflow/memflow", branch = "next" }
+#memflow-win32 = { git = "https://github.com/memflow/memflow", branch = "next" }
+memflow-win32 = { path = "../memflow/memflow-win32" }
 
 [profile.release]
 lto = true

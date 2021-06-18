@@ -15,6 +15,8 @@ extern crate scan_fmt;
 mod mem_map;
 use mem_map::qemu_mem_mappings;
 
+cglue_impl_group!(QemuProcfs, ConnectorInstance, {});
+
 #[derive(Clone, Copy)]
 #[repr(transparent)]
 struct IoSendVec(iovec);
@@ -262,27 +264,6 @@ impl PhysicalMemory for QemuProcfs {
     }
 }
 
-impl<'a> ConnectorCpuStateInner<'a> for QemuProcfs {
-    type CpuStateType = &'a mut QemuProcfs;
-    type IntoCpuStateType = QemuProcfs;
-
-    fn cpu_state(&'a mut self) -> memflow::error::Result<Self::CpuStateType> {
-        Ok(self)
-    }
-
-    fn into_cpu_state(self) -> memflow::error::Result<Self::IntoCpuStateType> {
-        Ok(self)
-    }
-}
-
-impl CpuState for QemuProcfs {
-    // TODO:
-}
-
-impl CpuState for &mut QemuProcfs {
-    // TODO:
-}
-
 fn validator() -> ArgsValidator {
     ArgsValidator::new()
         .arg(ArgDescriptor::new("default").description(
@@ -294,6 +275,7 @@ fn validator() -> ArgsValidator {
 }
 
 /// Creates a new Qemu Procfs instance.
+#[connector(name = "qemu_procfs", help_fn = "help", target_list_fn = "target_list")]
 pub fn create_connector(args: &Args, log_level: Level) -> Result<QemuProcfs> {
     simple_logger::SimpleLogger::new()
         .with_level(log_level.to_level_filter())
@@ -317,16 +299,6 @@ pub fn create_connector(args: &Args, log_level: Level) -> Result<QemuProcfs> {
             Err(err)
         }
     }
-}
-
-/// Creates a new Qemu Procfs Connector instance.
-#[connector(name = "qemu_procfs", help_fn = "help", target_list_fn = "target_list")]
-pub fn create_connector_instance(args: &Args, log_level: Level) -> Result<ConnectorInstance> {
-    let connector = create_connector(args, log_level)?;
-    let instance = ConnectorInstance::builder(connector)
-        .enable_cpu_state()
-        .build();
-    Ok(instance)
 }
 
 /// Retrieve the help text for the Qemu Procfs Connector.
