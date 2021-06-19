@@ -4,6 +4,7 @@ use core::ffi::c_void;
 use libc::{c_ulong, iovec, pid_t, sysconf, _SC_IOV_MAX};
 
 use memflow::cglue;
+use memflow::connector::cpu_state::*;
 use memflow::mem::phys_mem::*;
 use memflow::prelude::v1::*;
 
@@ -17,7 +18,8 @@ extern crate scan_fmt;
 mod mem_map;
 use mem_map::qemu_mem_mappings;
 
-cglue_impl_group!(QemuProcfs, ConnectorInstance<'a>, {});
+cglue_impl_group!(QemuProcfs, ConnectorInstance<'a>, { ConnectorCpuStateInner<'a> });
+cglue_impl_group!(QemuProcfs, IntoCpuState);
 
 #[derive(Clone, Copy)]
 #[repr(transparent)]
