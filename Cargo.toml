@@ -20,11 +20,10 @@ crate-type = ["lib", "cdylib"]
 memflow = { path = "../memflow/memflow", features = ["plugins"] }
 log = { version = "0.4", default-features = false }
 simple_logger = "1.0"
-procfs = "0.7"
+procfs = "0.9"
 libc = "0.2"
 qapi = { version = "0.7.0", features = ["qmp"], optional = true }
 scan_fmt = { version = "0.2", optional = true }
-cglue = { git = "ssh://git@github.com/h33p/cglue.git", branch = "main" } # TODO: removeme
 
 [dev-dependencies]
 clap = "2.33"

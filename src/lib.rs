@@ -3,6 +3,8 @@ use log::{error, info, Level};
 use core::ffi::c_void;
 use libc::{c_ulong, iovec, pid_t, sysconf, _SC_IOV_MAX};
 
+use memflow::cglue;
+use memflow::mem::phys_mem::*;
 use memflow::prelude::v1::*;
 
 mod qemu_args;
@@ -15,7 +17,7 @@ extern crate scan_fmt;
 mod mem_map;
 use mem_map::qemu_mem_mappings;
 
-cglue_impl_group!(QemuProcfs, ConnectorInstance, {});
+cglue_impl_group!(QemuProcfs, ConnectorInstance<'a>, {});
 
 #[derive(Clone, Copy)]
 #[repr(transparent)]
@@ -262,6 +264,25 @@ impl PhysicalMemory for QemuProcfs {
     fn set_mem_map(&mut self, mem_map: MemoryMap<(Address, usize)>) {
         self.mem_map.merge(mem_map)
     }
+}
+
+impl<'a> ConnectorCpuStateInner<'a> for QemuProcfs {
+    type CpuStateType = Fwd<&'a mut QemuProcfs>;
+    type IntoCpuStateType = QemuProcfs;
+
+    fn cpu_state(&'a mut self) -> Result<Self::CpuStateType> {
+        Ok(self.forward_mut())
+    }
+
+    fn into_cpu_state(self) -> Result<Self::IntoCpuStateType> {
+        Ok(self)
+    }
+}
+
+impl CpuState for QemuProcfs {
+    fn pause(&mut self) {}
+
+    fn resume(&mut self) {}
 }
 
 fn validator() -> ArgsValidator {
