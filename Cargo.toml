@@ -16,8 +16,7 @@ categories = [ "api-bindings", "memory-management", "os" ]
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-#memflow = { git = "https://github.com/memflow/memflow", branch = "next", features = ["plugins"] }
-memflow = { path = "../memflow/memflow", features = ["plugins"] }
+memflow = { git = "https://github.com/memflow/memflow", branch = "next", features = ["plugins"] }
 log = { version = "0.4", default-features = false }
 simple_logger = "1.0"
 procfs = "0.9"
@@ -27,8 +26,7 @@ scan_fmt = { version = "0.2", optional = true }
 
 [dev-dependencies]
 clap = "2.33"
-#memflow-win32 = { git = "https://github.com/memflow/memflow", branch = "next" }
-memflow-win32 = { path = "../memflow/memflow-win32" }
+memflow-win32 = { git = "https://github.com/memflow/memflow", branch = "next" }
 
 [profile.release]
 lto = true
