@@ -263,8 +263,10 @@ impl PhysicalMemory for QemuProcfs {
         }
     }
 
-    fn set_mem_map(&mut self, mem_map: MemoryMap<(Address, usize)>) {
-        self.mem_map.merge(mem_map)
+    #[inline]
+    fn set_mem_map(&mut self, mem_map: &[PhysicalMemoryMapping]) {
+        let map = MemoryMap::<(Address, usize)>::from_vec(mem_map.to_vec());
+        self.mem_map.merge(map);
     }
 }
 
