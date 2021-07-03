@@ -255,6 +255,7 @@ impl PhysicalMemory for QemuProcfs {
             max_address: self.mem_map.max_address(),
             real_size: self.mem_map.real_size(),
             readonly: false,
+            ideal_batch_size: libc::_SC_IOV_MAX as u32,
         }
     }
 
