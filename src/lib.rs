@@ -252,13 +252,8 @@ impl PhysicalMemory for QemuProcfs {
 
     fn metadata(&self) -> PhysicalMemoryMetadata {
         PhysicalMemoryMetadata {
-            size: self
-                .mem_map
-                .as_ref()
-                .iter()
-                .last()
-                .map(|map| map.base().as_usize() + map.output().1)
-                .unwrap(),
+            max_address: self.mem_map.max_address(),
+            real_size: self.mem_map.real_size(),
             readonly: false,
         }
     }
