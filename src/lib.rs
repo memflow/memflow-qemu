@@ -153,16 +153,16 @@ impl QemuProcfs {
 }
 
 impl PhysicalMemory for QemuProcfs {
-    fn phys_read_raw_list(&mut self, data: &mut [PhysicalReadData]) -> Result<()> {
+    fn phys_read_raw_iter<'a>(
+        &mut self,
+        data: CIterator<PhysicalReadData<'a>>,
+        out_fail: &mut PhysicalReadFailCallback<'_, 'a>,
+    ) -> Result<()> {
         let mem_map = &self.mem_map;
         let temp_iov = &mut self.temp_iov;
 
-        let mut void = FnExtend::void();
-        let mut iter = mem_map.map_iter(
-            data.iter_mut()
-                .map(|PhysicalReadData(addr, buf)| (*addr, &mut **buf)),
-            &mut void,
-        );
+        let mut callback = &mut |(a, b): (Address, _)| out_fail.call(MemData(a.into(), b));
+        let mut iter = mem_map.map_iter(data.map(|MemData(addr, buf)| (addr, buf)), &mut callback);
 
         let max_iov = temp_iov.len() / 2;
         let (iov_local, iov_remote) = temp_iov.split_at_mut(max_iov);
@@ -175,7 +175,7 @@ impl PhysicalMemory for QemuProcfs {
         while let Some(((addr, _), out)) = elem {
             let (cnt, (liov, riov)) = iov_next.unwrap();
 
-            Self::fill_iovec(&addr, out, liov, riov);
+            Self::fill_iovec(&addr, &out, liov, riov);
 
             iov_next = iov_iter.next();
             elem = iter.next();
@@ -203,13 +203,16 @@ impl PhysicalMemory for QemuProcfs {
         Ok(())
     }
 
-    fn phys_write_raw_list(&mut self, data: &[PhysicalWriteData]) -> Result<()> {
+    fn phys_write_raw_iter<'a>(
+        &mut self,
+        data: CIterator<PhysicalWriteData<'a>>,
+        out_fail: &mut PhysicalWriteFailCallback<'_, 'a>,
+    ) -> Result<()> {
         let mem_map = &self.mem_map;
         let temp_iov = &mut self.temp_iov;
 
-        let mut void = FnExtend::void();
-        let mut iter = mem_map.map_iter(data.iter().copied().map(<_>::from), &mut void);
-        //let mut iter = mem_map.map_iter(data.iter(), &mut FnExtend::new(|_|{}));
+        let mut callback = &mut |(a, b): (Address, _)| out_fail.call(MemData(a.into(), b));
+        let mut iter = mem_map.map_iter(data.map(|MemData(a, b)| (a, b)), &mut callback);
 
         let max_iov = temp_iov.len() / 2;
         let (iov_local, iov_remote) = temp_iov.split_at_mut(max_iov);
@@ -222,7 +225,7 @@ impl PhysicalMemory for QemuProcfs {
         while let Some(((addr, _), out)) = elem {
             let (cnt, (liov, riov)) = iov_next.unwrap();
 
-            Self::fill_iovec(&addr, out, liov, riov);
+            Self::fill_iovec(&addr, &out, liov, riov);
 
             iov_next = iov_iter.next();
             elem = iter.next();
@@ -255,7 +258,7 @@ impl PhysicalMemory for QemuProcfs {
             max_address: self.mem_map.max_address(),
             real_size: self.mem_map.real_size(),
             readonly: false,
-            ideal_batch_size: libc::_SC_IOV_MAX as u32,
+            ideal_batch_size: (self.temp_iov.len() / 2) as u32,
         }
     }
 
