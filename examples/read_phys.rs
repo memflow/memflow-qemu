@@ -23,7 +23,8 @@ fn main() {
 
     let mut mem = vec![0; 8];
     connector
-        .phys_read_raw_into(Address::from(0x1000).into(), &mut mem)
+        .phys_view()
+        .read_raw_into(Address::from(0x1000).into(), &mut mem)
         .expect("unable to read physical memory");
     info!("Received memory: {:?}", mem);
 
@@ -32,7 +33,8 @@ fn main() {
     loop {
         let mut buf = vec![0; 0x1000];
         connector
-            .phys_read_raw_into(Address::from(0x1000).into(), &mut buf)
+            .phys_view()
+            .read_raw_into(Address::from(0x1000).into(), &mut buf)
             .expect("unable to read physical memory");
 
         counter += 1;

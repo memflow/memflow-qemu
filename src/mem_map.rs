@@ -2,7 +2,7 @@ use log::info;
 
 use crate::qemu_args::qemu_arg_opt;
 
-use memflow::prelude::v1::{size, Address, Error, ErrorKind, ErrorOrigin, MemoryMap, Result};
+use memflow::prelude::v1::{size, umem, Address, Error, ErrorKind, ErrorOrigin, MemoryMap, Result};
 
 #[cfg(feature = "qmp")]
 use qapi::{qmp, Qmp};
@@ -15,13 +15,13 @@ use std::os::unix::net::UnixStream;
 
 #[derive(Debug, Clone)]
 struct Mapping {
-    pub range_start: u64,
-    pub range_end: u64,
-    pub remap_start: u64,
+    pub range_start: umem,
+    pub range_end: umem,
+    pub remap_start: umem,
 }
 
 impl Mapping {
-    pub const fn new(range_start: u64, range_end: u64, remap_start: u64) -> Self {
+    pub const fn new(range_start: umem, range_end: umem, remap_start: umem) -> Self {
         Self {
             range_start,
             range_end,
@@ -33,7 +33,7 @@ impl Mapping {
 pub fn qemu_mem_mappings(
     cmdline: &[String],
     qemu_map: &procfs::process::MemoryMap,
-) -> Result<MemoryMap<(Address, usize)>> {
+) -> Result<MemoryMap<(Address, umem)>> {
     let mut mem_map = MemoryMap::new();
 
     let mappings = if let Ok(mappings) = qmp_get_mtree(cmdline) {
@@ -126,7 +126,7 @@ fn qmp_parse_mtree(mtreestr: &str) -> Vec<Mapping> {
         .filter(|l| l.contains("pc.ram"))
         .map(|l| l.trim())
     {
-        let range = scan_fmt_some!(line, "{x}-{x} {*[^:]}: pc.ram {*[@]}{x} KVM", [hex u64], [hex u64], [hex u64]);
+        let range = scan_fmt_some!(line, "{x}-{x} {*[^:]}: pc.ram {*[@]}{x} KVM", [hex umem], [hex umem], [hex umem]);
         if range.0.is_some() && range.1.is_some() {
             // on some systems the second list of memory mappings (mem-container-smram)
             // does not exactly line up with the first mappings (system).
@@ -149,11 +149,11 @@ fn qmp_parse_mtree(mtreestr: &str) -> Vec<Mapping> {
 }
 
 fn qemu_get_mtree_fallback(machine: &str, qemu_map: &procfs::process::MemoryMap) -> Vec<Mapping> {
-    let map_size = (qemu_map.address.1 - qemu_map.address.0) as u64;
+    let map_size = qemu_map.address.1 - qemu_map.address.0;
     info!("qemu memory map size: {:x}", map_size);
 
     if machine.contains("q35") {
-        if map_size >= size::mb(2816) as u64 {
+        if map_size >= size::mb(2816) {
             info!("using fallback memory mappings for q35 with more than 2816mb of ram");
             qemu_get_mtree_fallback_q35(map_size)
         } else {
@@ -170,7 +170,7 @@ fn qemu_get_mtree_fallback(machine: &str, qemu_map: &procfs::process::MemoryMap)
 }
 
 /// Returns hard-coded mem-mappings for q35 qemu machine types with more than 2816 mb of ram.
-fn qemu_get_mtree_fallback_q35(map_size: u64) -> Vec<Mapping> {
+fn qemu_get_mtree_fallback_q35(map_size: umem) -> Vec<Mapping> {
     /*
     0000000000000000-000000000009ffff (prio 0, ram): pc.ram KVM
     00000000000c0000-00000000000c3fff (prio 0, rom): pc.ram @00000000000c0000 KVM
@@ -178,38 +178,26 @@ fn qemu_get_mtree_fallback_q35(map_size: u64) -> Vec<Mapping> {
     0000000100000000-000000047fffffff (prio 0, ram): pc.ram @0000000080000000 KVM
     */
     vec![
-        Mapping::new(size::mb(1) as u64, size::gb(2) as u64, size::mb(1) as u64),
-        Mapping::new(
-            size::gb(4) as u64,
-            map_size + size::gb(2) as u64,
-            size::gb(2) as u64,
-        ),
+        Mapping::new(size::mb(1), size::gb(2), size::mb(1)),
+        Mapping::new(size::gb(4), map_size + size::gb(2), size::gb(2)),
     ]
 }
 
 /// Returns hard-coded mem-mappings for q35 qemu machine types with less than 2816 mb of ram.
-fn qemu_get_mtree_fallback_q35_smallmem(map_size: u64) -> Vec<Mapping> {
+fn qemu_get_mtree_fallback_q35_smallmem(map_size: umem) -> Vec<Mapping> {
     // Same as above but without the second mapping
-    vec![Mapping::new(
-        size::mb(1) as u64,
-        map_size,
-        size::mb(1) as u64,
-    )]
+    vec![Mapping::new(size::mb(1), map_size, size::mb(1))]
 }
 
 /// Returns hard-coded mem-mappings for aarch64 qemu machine types.
-fn qemu_get_mtree_fallback_aarch64(map_size: u64) -> Vec<Mapping> {
+fn qemu_get_mtree_fallback_aarch64(map_size: umem) -> Vec<Mapping> {
     // It is not known for sure whether this is correct for all ARM machines, but
     // it seems like all memory on qemu ARM is shifted by 1GB and is linear from there.
-    vec![Mapping::new(
-        size::gb(1) as u64,
-        map_size + size::gb(1) as u64,
-        0u64,
-    )]
+    vec![Mapping::new(size::gb(1), map_size + size::gb(1), 0u64)]
 }
 
 /// Returns hard-coded mem-mappings for pc-i1440fx qemu machine types.
-fn qemu_get_mtree_fallback_pc(map_size: u64) -> Vec<Mapping> {
+fn qemu_get_mtree_fallback_pc(map_size: umem) -> Vec<Mapping> {
     /*
     0000000000000000-00000000000bffff (prio 0, ram): pc.ram KVM
     00000000000c0000-00000000000cafff (prio 0, rom): pc.ram @00000000000c0000 KVM
@@ -221,23 +209,11 @@ fn qemu_get_mtree_fallback_pc(map_size: u64) -> Vec<Mapping> {
     0000000100000000-000000023fffffff (prio 0, ram): pc.ram @00000000c0000000 KVM
     */
     vec![
-        Mapping::new(0u64, size::kb(768) as u64, 0u64),
-        Mapping::new(
-            size::kb(812) as u64,
-            size::kb(824) as u64,
-            size::kb(812) as u64,
-        ),
-        Mapping::new(
-            size::kb(928) as u64,
-            size::kb(960) as u64,
-            size::kb(928) as u64,
-        ),
-        Mapping::new(size::mb(1) as u64, size::gb(3) as u64, size::mb(1) as u64),
-        Mapping::new(
-            size::gb(4) as u64,
-            map_size + size::gb(1) as u64,
-            size::gb(3) as u64,
-        ),
+        Mapping::new(0u64, size::kb(768), 0u64),
+        Mapping::new(size::kb(812), size::kb(824), size::kb(812)),
+        Mapping::new(size::kb(928), size::kb(960), size::kb(928)),
+        Mapping::new(size::mb(1), size::gb(3), size::mb(1)),
+        Mapping::new(size::gb(4), map_size + size::gb(1), size::gb(3)),
     ]
 }
 
