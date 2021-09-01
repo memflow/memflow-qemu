@@ -2,7 +2,7 @@ use log::info;
 
 use crate::qemu_args::qemu_arg_opt;
 
-use memflow::prelude::v1::{size, umem, Address, Error, ErrorKind, ErrorOrigin, MemoryMap, Result};
+use memflow::prelude::v1::{mem, umem, Address, Error, ErrorKind, ErrorOrigin, MemoryMap, Result};
 
 #[cfg(feature = "qmp")]
 use qapi::{qmp, Qmp};
@@ -153,7 +153,7 @@ fn qemu_get_mtree_fallback(machine: &str, qemu_map: &procfs::process::MemoryMap)
     info!("qemu memory map size: {:x}", map_size);
 
     if machine.contains("q35") {
-        if map_size >= size::mb(2816) {
+        if map_size >= mem::mb(2816) {
             info!("using fallback memory mappings for q35 with more than 2816mb of ram");
             qemu_get_mtree_fallback_q35(map_size)
         } else {
@@ -178,22 +178,22 @@ fn qemu_get_mtree_fallback_q35(map_size: umem) -> Vec<Mapping> {
     0000000100000000-000000047fffffff (prio 0, ram): pc.ram @0000000080000000 KVM
     */
     vec![
-        Mapping::new(size::mb(1), size::gb(2), size::mb(1)),
-        Mapping::new(size::gb(4), map_size + size::gb(2), size::gb(2)),
+        Mapping::new(mem::mb(1), mem::gb(2), mem::mb(1)),
+        Mapping::new(mem::gb(4), map_size + mem::gb(2), mem::gb(2)),
     ]
 }
 
 /// Returns hard-coded mem-mappings for q35 qemu machine types with less than 2816 mb of ram.
 fn qemu_get_mtree_fallback_q35_smallmem(map_size: umem) -> Vec<Mapping> {
     // Same as above but without the second mapping
-    vec![Mapping::new(size::mb(1), map_size, size::mb(1))]
+    vec![Mapping::new(mem::mb(1), map_size, mem::mb(1))]
 }
 
 /// Returns hard-coded mem-mappings for aarch64 qemu machine types.
 fn qemu_get_mtree_fallback_aarch64(map_size: umem) -> Vec<Mapping> {
     // It is not known for sure whether this is correct for all ARM machines, but
     // it seems like all memory on qemu ARM is shifted by 1GB and is linear from there.
-    vec![Mapping::new(size::gb(1), map_size + size::gb(1), 0u64)]
+    vec![Mapping::new(mem::gb(1), map_size + mem::gb(1), 0u64)]
 }
 
 /// Returns hard-coded mem-mappings for pc-i1440fx qemu machine types.
@@ -209,11 +209,11 @@ fn qemu_get_mtree_fallback_pc(map_size: umem) -> Vec<Mapping> {
     0000000100000000-000000023fffffff (prio 0, ram): pc.ram @00000000c0000000 KVM
     */
     vec![
-        Mapping::new(0u64, size::kb(768), 0u64),
-        Mapping::new(size::kb(812), size::kb(824), size::kb(812)),
-        Mapping::new(size::kb(928), size::kb(960), size::kb(928)),
-        Mapping::new(size::mb(1), size::gb(3), size::mb(1)),
-        Mapping::new(size::gb(4), map_size + size::gb(1), size::gb(3)),
+        Mapping::new(0u64, mem::kb(768), 0u64),
+        Mapping::new(mem::kb(812), mem::kb(824), mem::kb(812)),
+        Mapping::new(mem::kb(928), mem::kb(960), mem::kb(928)),
+        Mapping::new(mem::mb(1), mem::gb(3), mem::mb(1)),
+        Mapping::new(mem::gb(4), map_size + mem::gb(1), mem::gb(3)),
     ]
 }
 
