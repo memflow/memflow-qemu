@@ -41,7 +41,7 @@ impl QemuProcfs {
                 .log_error("unable to list procfs processes")
         })?;
         let prc = prcs.iter().find(|p| is_qemu(p)).ok_or_else(|| {
-            Error(ErrorOrigin::Connector, ErrorKind::NotFound).log_error("qemu process not found")
+            Error(ErrorOrigin::Connector, ErrorKind::NotFound).log_error("qemu process not found (is qemu running?)")
         })?;
         info!("qemu process found with pid {:?}", prc.stat.pid);
 
@@ -66,7 +66,7 @@ impl QemuProcfs {
             .find(|(_, c)| qemu_arg_opt(c, "-name", "guest").unwrap_or_default() == name)
             .ok_or_else(|| {
                 Error(ErrorOrigin::Connector, ErrorKind::NotFound)
-                    .log_error("qemu process not found")
+                    .log_error("qemu process not found (is qemu running?)")
             })?;
         info!(
             "qemu process with name {} found with pid {:?}",
