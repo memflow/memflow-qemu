@@ -29,8 +29,8 @@ unsafe impl Send for IoSendVec {}
 
 #[derive(Clone)]
 pub struct QemuProcfs {
-    pub pid: pid_t,
-    pub mem_map: MemoryMap<(Address, umem)>,
+    pid: pid_t,
+    mem_map: MemoryMap<(Address, umem)>,
     temp_iov: Box<[IoSendVec]>,
 }
 
@@ -261,12 +261,6 @@ impl PhysicalMemory for QemuProcfs {
             readonly: false,
             ideal_batch_size: (self.temp_iov.len() / 2) as u32,
         }
-    }
-
-    #[inline]
-    fn set_mem_map(&mut self, mem_map: &[PhysicalMemoryMapping]) {
-        let map = MemoryMap::<(Address, umem)>::from_vec(mem_map.to_vec());
-        self.mem_map.merge(map);
     }
 }
 
