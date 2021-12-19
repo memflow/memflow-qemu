@@ -43,7 +43,7 @@ pub fn qemu_mem_mappings(
         let machine = if !cmdline.is_empty() && cmdline[0].contains("aarch64") {
             "aarch64".into()
         } else {
-            qemu_arg_opt(&cmdline, "-machine", "type").unwrap_or_else(|| "pc".into())
+            qemu_arg_opt(cmdline, "-machine", "type").unwrap_or_else(|| "pc".into())
         };
         info!("qemu process started with machine: {}", machine);
         qemu_get_mtree_fallback(&machine, qemu_map)
@@ -64,7 +64,7 @@ pub fn qemu_mem_mappings(
 #[cfg(feature = "qmp")]
 fn qmp_get_mtree(cmdline: &[String]) -> Result<Vec<Mapping>> {
     // -qmp unix:/tmp/qmp-win10-reversing.sock,server,nowait
-    let socket_addr = qemu_arg_opt(&cmdline, "-qmp", "")
+    let socket_addr = qemu_arg_opt(cmdline, "-qmp", "")
         .ok_or(Error(ErrorOrigin::Connector, ErrorKind::Configuration))?;
     if socket_addr.starts_with("unix:") {
         let socket_path = socket_addr

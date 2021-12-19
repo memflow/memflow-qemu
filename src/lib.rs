@@ -1,4 +1,4 @@
-use log::{error, info, Level};
+use log::{error, info};
 
 use core::ffi::c_void;
 use libc::{c_ulong, iovec, pid_t, sysconf, _SC_IOV_MAX};
@@ -106,7 +106,7 @@ impl QemuProcfs {
         cmdline: &[String],
         qemu_map: &procfs::process::MemoryMap,
     ) -> Result<Self> {
-        let mem_map = qemu_mem_mappings(&cmdline, qemu_map)?;
+        let mem_map = qemu_mem_mappings(cmdline, qemu_map)?;
         info!("qemu machine mem_map: {:?}", mem_map);
 
         let iov_max = unsafe { sysconf(_SC_IOV_MAX) } as usize;
@@ -295,14 +295,9 @@ fn validator() -> ArgsValidator {
 
 /// Creates a new Qemu Procfs instance.
 #[connector(name = "qemu_procfs", help_fn = "help", target_list_fn = "target_list")]
-pub fn create_connector(args: &Args, log_level: Level) -> Result<QemuProcfs> {
-    simple_logger::SimpleLogger::new()
-        .with_level(log_level.to_level_filter())
-        .init()
-        .ok();
-
+pub fn create_connector(args: &Args) -> Result<QemuProcfs> {
     let validator = validator();
-    match validator.validate(&args) {
+    match validator.validate(args) {
         Ok(_) => {
             if let Some(name) = args.get("name").or_else(|| args.get_default()) {
                 QemuProcfs::with_guest_name(name)

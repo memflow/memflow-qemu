@@ -15,7 +15,7 @@ fn main() {
         .init()
         .unwrap();
 
-    let mut connector = memflow_qemu_procfs::create_connector(&Args::default(), Level::Debug)
+    let mut connector = memflow_qemu_procfs::create_connector(&Args::default())
         .expect("unable to create qemu_procfs connector");
 
     let metadata = connector.metadata();
@@ -24,7 +24,7 @@ fn main() {
     let mut mem = vec![0; 8];
     connector
         .phys_view()
-        .read_raw_into(Address::from(0x1000).into(), &mut mem)
+        .read_raw_into(Address::from(0x1000), &mut mem)
         .expect("unable to read physical memory");
     info!("Received memory: {:?}", mem);
 
@@ -34,7 +34,7 @@ fn main() {
         let mut buf = vec![0; 0x1000];
         connector
             .phys_view()
-            .read_raw_into(Address::from(0x1000).into(), &mut buf)
+            .read_raw_into(Address::from(0x1000), &mut buf)
             .expect("unable to read physical memory");
 
         counter += 1;

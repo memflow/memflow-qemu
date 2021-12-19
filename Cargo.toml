@@ -18,15 +18,15 @@ crate-type = ["lib", "cdylib"]
 [dependencies]
 memflow = { git = "https://github.com/memflow/memflow", branch = "next", features = ["plugins"] }
 #memflow = { path = "../memflow/memflow", features = ["plugins"] }
-log = { version = "0.4", default-features = false }
-simple_logger = "1.0"
-procfs = "0.9"
+log = "0.4"
+procfs = "0.12"
 libc = "0.2"
-qapi = { version = "0.7.0", features = ["qmp"], optional = true }
+qapi = { version = "0.8.0", features = ["qmp"], optional = true }
 scan_fmt = { version = "0.2", optional = true }
 
 [dev-dependencies]
 clap = "2.33"
+simple_logger = "1.0"
 memflow-win32 = { git = "https://github.com/memflow/memflow", branch = "next" }
 #memflow-win32 = { path = "../memflow/memflow-win32" }
 

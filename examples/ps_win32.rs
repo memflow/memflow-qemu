@@ -32,7 +32,7 @@ fn main() {
         Args::default()
     };
 
-    let connector = memflow_qemu_procfs::create_connector(&connector_args, Level::Debug)
+    let connector = memflow_qemu_procfs::create_connector(&connector_args)
         .expect("unable to create qemu_procfs connector");
 
     let mut os = Win32Kernel::builder(connector)
