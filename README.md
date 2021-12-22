@@ -12,7 +12,6 @@ Additionally the `--system` flag can be specified which will install the connect
 
 ### Building the stand-alone connector for dynamic loading
 
-The stand-alone connector of this library is feature-gated behind the `inventory` feature.
 To compile a dynamic library for use with the connector inventory use the following command:
 
 ```

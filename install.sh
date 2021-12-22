@@ -8,7 +8,7 @@ if [ ! -z "$1" ] && [ $1 = "--system" ]; then
     if [[ ! -d /usr/lib/memflow ]]; then
         sudo mkdir /usr/lib/memflow
     fi
-    sudo cp target/release/libmemflow_qemu_procfs.so /usr/lib/memflow
+    sudo cp target/release/libmemflow_qemu_procfs.so /usr/lib/memflow/libmemflow_qemu_procfs.7.so
 fi
 
 # install connector in user dir
@@ -16,4 +16,4 @@ echo "installing connector for user in ~/.local/lib/memflow"
 if [[ ! -d ~/.local/lib/memflow ]]; then
     mkdir -p ~/.local/lib/memflow
 fi
-cp target/release/libmemflow_qemu_procfs.so ~/.local/lib/memflow
+cp target/release/libmemflow_qemu_procfs.so ~/.local/lib/memflow/libmemflow_qemu_procfs.7.so

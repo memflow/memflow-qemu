@@ -27,7 +27,7 @@ scan_fmt = { version = "0.2", optional = true }
 [dev-dependencies]
 clap = "2.33"
 simple_logger = "1.0"
-memflow-win32 = { git = "https://github.com/memflow/memflow", branch = "next" }
+memflow-win32 = { git = "https://github.com/memflow/memflow-win32", branch = "main" }
 #memflow-win32 = { path = "../memflow/memflow-win32" }
 
 [profile.release]
