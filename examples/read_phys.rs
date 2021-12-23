@@ -15,7 +15,7 @@ fn main() {
         .init()
         .unwrap();
 
-    let mut connector = memflow_qemu_procfs::create_connector(&Args::default())
+    let mut connector = memflow_qemu::create_connector(&Args::default())
         .expect("unable to create qemu_procfs connector");
 
     let metadata = connector.metadata();
