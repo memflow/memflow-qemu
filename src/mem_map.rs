@@ -2,6 +2,7 @@ use log::info;
 
 use crate::qemu_args::qemu_arg_opt;
 
+use memflow::mem::virt_translate::MemoryRange;
 use memflow::prelude::v1::{mem, umem, Address, Error, ErrorKind, ErrorOrigin, MemoryMap, Result};
 
 #[cfg(feature = "qmp")]
@@ -31,19 +32,26 @@ impl Mapping {
 }
 
 pub fn qemu_mem_mappings(
-    cmdline: &[String],
-    qemu_map: &procfs::process::MemoryMap,
+    cmdline: &str,
+    qemu_map: &MemoryRange,
 ) -> Result<MemoryMap<(Address, umem)>> {
     let mut mem_map = MemoryMap::new();
 
-    let mappings = if let Ok(mappings) = qmp_get_mtree(cmdline) {
+    let mappings = if let Ok(mappings) = qmp_get_mtree(cmdline.split_whitespace()) {
         mappings
     } else {
         // find machine architecture and type
-        let machine = if !cmdline.is_empty() && cmdline[0].contains("aarch64") {
+        let machine = if !cmdline.is_empty()
+            && cmdline
+                .split_whitespace()
+                .nth(0)
+                .unwrap()
+                .contains("aarch64")
+        {
             "aarch64".into()
         } else {
-            qemu_arg_opt(cmdline, "-machine", "type").unwrap_or_else(|| "pc".into())
+            qemu_arg_opt(cmdline.split_whitespace(), "-machine", "type")
+                .unwrap_or_else(|| "pc".into())
         };
         info!("qemu process started with machine: {}", machine);
         qemu_get_mtree_fallback(&machine, qemu_map)
@@ -54,7 +62,7 @@ pub fn qemu_mem_mappings(
         mem_map.push_range(
             mapping.range_start.into(),
             mapping.range_end.into(),
-            (qemu_map.address.0 + mapping.remap_start).into(),
+            (qemu_map.address + mapping.remap_start).into(),
         );
     }
 
@@ -62,7 +70,7 @@ pub fn qemu_mem_mappings(
 }
 
 #[cfg(feature = "qmp")]
-fn qmp_get_mtree(cmdline: &[String]) -> Result<Vec<Mapping>> {
+fn qmp_get_mtree<'a>(cmdline: impl IntoIterator<Item = &'a str>) -> Result<Vec<Mapping>> {
     // -qmp unix:/tmp/qmp-win10-reversing.sock,server,nowait
     let socket_addr = qemu_arg_opt(cmdline, "-qmp", "")
         .ok_or(Error(ErrorOrigin::Connector, ErrorKind::Configuration))?;
@@ -111,7 +119,7 @@ fn qmp_get_mtree_stream<S: Read + Write + Clone>(stream: S) -> Result<Vec<Mappin
 }
 
 #[cfg(not(feature = "qmp"))]
-fn qmp_get_mtree(cmdline: &[String]) -> Result<Vec<Mapping>> {
+fn qmp_get_mtree<'a>(cmdline: impl IntoIterator<Item = &'a str>) -> Result<Vec<Mapping>> {
     Err(Error(
         ErrorOrigin::Connector,
         ErrorKind::UnsupportedOptionalFeature,
@@ -148,8 +156,8 @@ fn qmp_parse_mtree(mtreestr: &str) -> Vec<Mapping> {
     mappings
 }
 
-fn qemu_get_mtree_fallback(machine: &str, qemu_map: &procfs::process::MemoryMap) -> Vec<Mapping> {
-    let map_size = qemu_map.address.1 - qemu_map.address.0;
+fn qemu_get_mtree_fallback(machine: &str, qemu_map: &MemoryRange) -> Vec<Mapping> {
+    let map_size = qemu_map.size;
     info!("qemu memory map size: {:x}", map_size);
 
     if machine.contains("q35") {

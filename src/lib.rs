@@ -1,11 +1,11 @@
 use log::{error, info};
 
-use core::ffi::c_void;
-use libc::{c_ulong, iovec, pid_t, sysconf, _SC_IOV_MAX};
-
 use memflow::cglue;
 use memflow::connector::cpu_state::*;
+use memflow::mem::memory_view::RemapView;
 use memflow::mem::phys_mem::*;
+use memflow::mem::virt_translate::MemoryRange;
+use memflow::os::root::OsInner;
 use memflow::prelude::v1::*;
 
 mod qemu_args;
@@ -18,138 +18,113 @@ extern crate scan_fmt;
 mod mem_map;
 use mem_map::qemu_mem_mappings;
 
-cglue_impl_group!(QemuProcfs, ConnectorInstance<'a>, { ConnectorCpuStateInner<'a> });
-cglue_impl_group!(QemuProcfs, IntoCpuState);
-
-#[derive(Clone, Copy)]
-#[repr(transparent)]
-struct IoSendVec(iovec);
-
-unsafe impl Send for IoSendVec {}
+cglue_impl_group!(QemuProcfs/*<P: PhysicalMemory + Clone>*/, ConnectorInstance<'a>, { ConnectorCpuStateInner<'a> });
+cglue_impl_group!(
+    QemuProcfs, /*<P: PhysicalMemory + Clone>*/
+    IntoCpuState
+);
 
 #[derive(Clone)]
 pub struct QemuProcfs {
-    pid: pid_t,
-    mem_map: MemoryMap<(Address, umem)>,
-    temp_iov: Box<[IoSendVec]>,
+    view: RemapView<IntoProcessInstanceArcBox<'static>>,
 }
 
 impl QemuProcfs {
-    pub fn new() -> Result<Self> {
-        let prcs = procfs::process::all_processes().map_err(|_| {
-            Error(ErrorOrigin::Connector, ErrorKind::UnableToReadDir)
-                .log_error("unable to list procfs processes")
-        })?;
-        let prc = prcs.iter().find(|p| is_qemu(p)).ok_or_else(|| {
-            Error(ErrorOrigin::Connector, ErrorKind::NotFound)
-                .log_error("qemu process not found (is qemu running?)")
-        })?;
-        info!("qemu process found with pid {:?}", prc.stat.pid);
+    pub fn new(mut os: OsInstanceArcBox<'static>) -> Result<Self> {
+        let mut proc = None;
 
-        Self::with_process(prc)
+        let callback = &mut |info: ProcessInfo| {
+            if proc.is_none() && is_qemu(&info) {
+                proc = Some(info);
+            }
+
+            !proc.is_some()
+        };
+
+        os.process_info_list_callback(callback.into())?;
+
+        Self::with_process(
+            os,
+            proc.ok_or(Error(ErrorOrigin::Connector, ErrorKind::NotFound))?,
+        )
     }
 
-    pub fn with_guest_name(name: &str) -> Result<Self> {
-        let prcs = procfs::process::all_processes().map_err(|_| {
-            Error(ErrorOrigin::Connector, ErrorKind::UnableToReadDir)
-                .log_error("unable to list procfs processes")
-        })?;
-        let (prc, _) = prcs
-            .iter()
-            .filter(|p| is_qemu(p))
-            .filter_map(|p| {
-                if let Ok(c) = p.cmdline() {
-                    Some((p, c))
-                } else {
-                    None
-                }
-            })
-            .find(|(_, c)| qemu_arg_opt(c, "-name", "guest").unwrap_or_default() == name)
-            .ok_or_else(|| {
-                Error(ErrorOrigin::Connector, ErrorKind::NotFound)
-                    .log_error("qemu process not found (is qemu running?)")
-            })?;
+    pub fn with_guest_name(mut os: OsInstanceArcBox<'static>, name: &str) -> Result<Self> {
+        let mut proc = None;
+
+        let callback = &mut |info: ProcessInfo| {
+            if proc.is_none()
+                && is_qemu(&info)
+                && qemu_arg_opt(info.command_line.split_whitespace(), "-name", "guest").as_deref()
+                    == Some(name)
+            {
+                proc = Some(info);
+            }
+
+            !proc.is_some()
+        };
+
+        os.process_info_list_callback(callback.into())?;
+
+        Self::with_process(
+            os,
+            proc.ok_or(Error(ErrorOrigin::Connector, ErrorKind::NotFound))?,
+        )
+    }
+
+    fn with_process(os: OsInstanceArcBox<'static>, info: ProcessInfo) -> Result<Self> {
         info!(
             "qemu process with name {} found with pid {:?}",
-            name, prc.stat.pid
+            info.name, info.pid
         );
 
-        Self::with_process(prc)
-    }
+        let cmdline: String = info.command_line.to_string();
 
-    fn with_process(prc: &procfs::process::Process) -> Result<Self> {
-        // find biggest memory mapping in qemu process
-        let mut maps = prc
-            .maps()
-            .map_err(|_| Error(ErrorOrigin::Connector, ErrorKind::UnableToReadDir).log_error("Unable to retrieve Qemu memory maps. Did u run memflow with the correct access rights (SYS_PTRACE or root)?"))?;
-        maps.sort_by(|b, a| {
-            (a.address.1 - a.address.0)
-                .partial_cmp(&(b.address.1 - b.address.0))
-                .unwrap()
-        });
-        let qemu_map = maps.get(0).ok_or_else(|| {
-            Error(ErrorOrigin::Connector, ErrorKind::UnableToReadDir)
-                .log_error("Qemu memory map could not be read")
-        })?;
+        let mut prc = os.into_process_by_info(info)?;
+
+        let tr_prc = as_mut!(prc impl VirtualTranslate).ok_or(Error(
+            ErrorOrigin::Connector,
+            ErrorKind::UnsupportedOptionalFeature,
+        ))?;
+
+        let mut biggest_map = None;
+
+        let callback = &mut |range: MemoryRange| {
+            if biggest_map
+                .map(|m: MemoryRange| m.size < range.size)
+                .unwrap_or(true)
+            {
+                biggest_map = Some(range);
+            }
+
+            true
+        };
+
+        tr_prc.virt_page_map_range(
+            smem::mb(-1),
+            Address::NULL,
+            Address::INVALID,
+            callback.into(),
+        );
+
+        let qemu_map = biggest_map.ok_or(Error(ErrorOrigin::Connector, ErrorKind::NotFound))?;
+
         info!("qemu memory map found {:?}", qemu_map);
-
-        let cmdline = prc.cmdline().map_err(|_| {
-            Error(ErrorOrigin::Connector, ErrorKind::UnableToReadFile)
-                .log_error("unable to parse qemu arguments")
-        })?;
 
         Self::with_cmdline_and_mem(prc, &cmdline, qemu_map)
     }
 
     fn with_cmdline_and_mem(
-        prc: &procfs::process::Process,
-        cmdline: &[String],
-        qemu_map: &procfs::process::MemoryMap,
+        prc: IntoProcessInstanceArcBox<'static>,
+        cmdline: &str,
+        qemu_map: MemoryRange,
     ) -> Result<Self> {
-        let mem_map = qemu_mem_mappings(cmdline, qemu_map)?;
+        let mem_map = qemu_mem_mappings(cmdline, &qemu_map)?;
         info!("qemu machine mem_map: {:?}", mem_map);
 
-        let iov_max = unsafe { sysconf(_SC_IOV_MAX) } as usize;
-
         Ok(Self {
-            pid: prc.stat.pid,
-            mem_map,
-            temp_iov: vec![
-                IoSendVec {
-                    0: iovec {
-                        iov_base: std::ptr::null_mut::<c_void>(),
-                        iov_len: 0
-                    }
-                };
-                iov_max * 2
-            ]
-            .into_boxed_slice(),
+            view: prc.into_remap_view(mem_map),
         })
-    }
-
-    fn fill_iovec(addr: &Address, data: &[u8], liov: &mut IoSendVec, riov: &mut IoSendVec) {
-        let iov_len = data.len();
-
-        liov.0 = iovec {
-            iov_base: data.as_ptr() as *mut c_void,
-            iov_len,
-        };
-
-        riov.0 = iovec {
-            iov_base: addr.to_umem() as *mut c_void,
-            iov_len,
-        };
-    }
-
-    fn vm_error() -> Error {
-        match unsafe { *libc::__errno_location() } {
-            libc::EFAULT => Error(ErrorOrigin::Connector, ErrorKind::UnableToReadMemory).log_error("process_vm_readv failed: EFAULT (remote memory address is invalid)"),
-            libc::ENOMEM => Error(ErrorOrigin::Connector, ErrorKind::UnableToReadMemory).log_error("process_vm_readv failed: ENOMEM (unable to allocate memory for internal copies)"),
-            libc::EPERM => Error(ErrorOrigin::Connector, ErrorKind::UnableToReadMemory).log_error("process_vm_readv failed: EPERM (insifficient permissions to access the target address space)"),
-            libc::ESRCH => Error(ErrorOrigin::Connector, ErrorKind::UnableToReadMemory).log_error("process_vm_readv failed: ESRCH (process not found)"),
-            libc::EINVAL => Error(ErrorOrigin::Connector, ErrorKind::UnableToReadMemory).log_error("process_vm_readv failed: EINVAL (invalid value)"),
-            _ => Error(ErrorOrigin::Connector, ErrorKind::UnableToReadMemory).log_error("process_vm_readv failed: unknown error")
-        }
     }
 }
 
@@ -157,109 +132,31 @@ impl PhysicalMemory for QemuProcfs {
     fn phys_read_raw_iter<'a>(
         &mut self,
         data: CIterator<PhysicalReadData<'a>>,
-        out_fail: &mut PhysicalReadFailCallback<'_, 'a>,
+        out_fail: &mut ReadFailCallback<'_, 'a>,
     ) -> Result<()> {
-        let mem_map = &self.mem_map;
-        let temp_iov = &mut self.temp_iov;
-
-        let mut callback = &mut |(a, b): (Address, _)| out_fail.call(MemData(a.into(), b));
-        let mut iter = mem_map.map_iter(data.map(|MemData(addr, buf)| (addr, buf)), &mut callback);
-
-        let max_iov = temp_iov.len() / 2;
-        let (iov_local, iov_remote) = temp_iov.split_at_mut(max_iov);
-
-        let mut elem = iter.next();
-
-        let mut iov_iter = iov_local.iter_mut().zip(iov_remote.iter_mut()).enumerate();
-        let mut iov_next = iov_iter.next();
-
-        while let Some(((addr, _), out)) = elem {
-            let (cnt, (liov, riov)) = iov_next.unwrap();
-
-            Self::fill_iovec(&addr, &out, liov, riov);
-
-            iov_next = iov_iter.next();
-            elem = iter.next();
-
-            if elem.is_none() || iov_next.is_none() {
-                if unsafe {
-                    libc::process_vm_readv(
-                        self.pid,
-                        iov_local.as_ptr().cast(),
-                        (cnt + 1) as c_ulong,
-                        iov_remote.as_ptr().cast(),
-                        (cnt + 1) as c_ulong,
-                        0,
-                    )
-                } == -1
-                {
-                    return Err(Self::vm_error());
-                }
-
-                iov_iter = iov_local.iter_mut().zip(iov_remote.iter_mut()).enumerate();
-                iov_next = iov_iter.next();
-            }
-        }
-
-        Ok(())
+        let mut iter = data.map(|MemData(addr, data)| MemData(addr.into(), data));
+        let fail = &mut |MemData(a, b): ReadData<'a>| out_fail.call(MemData(a, b));
+        self.view
+            .read_raw_iter((&mut iter).into(), &mut (fail.into()))
     }
 
     fn phys_write_raw_iter<'a>(
         &mut self,
         data: CIterator<PhysicalWriteData<'a>>,
-        out_fail: &mut PhysicalWriteFailCallback<'_, 'a>,
+        out_fail: &mut WriteFailCallback<'_, 'a>,
     ) -> Result<()> {
-        let mem_map = &self.mem_map;
-        let temp_iov = &mut self.temp_iov;
-
-        let mut callback = &mut |(a, b): (Address, _)| out_fail.call(MemData(a.into(), b));
-        let mut iter = mem_map.map_iter(data.map(|MemData(a, b)| (a, b)), &mut callback);
-
-        let max_iov = temp_iov.len() / 2;
-        let (iov_local, iov_remote) = temp_iov.split_at_mut(max_iov);
-
-        let mut elem = iter.next();
-
-        let mut iov_iter = iov_local.iter_mut().zip(iov_remote.iter_mut()).enumerate();
-        let mut iov_next = iov_iter.next();
-
-        while let Some(((addr, _), out)) = elem {
-            let (cnt, (liov, riov)) = iov_next.unwrap();
-
-            Self::fill_iovec(&addr, &out, liov, riov);
-
-            iov_next = iov_iter.next();
-            elem = iter.next();
-
-            if elem.is_none() || iov_next.is_none() {
-                if unsafe {
-                    libc::process_vm_writev(
-                        self.pid,
-                        iov_local.as_ptr().cast(),
-                        (cnt + 1) as c_ulong,
-                        iov_remote.as_ptr().cast(),
-                        (cnt + 1) as c_ulong,
-                        0,
-                    )
-                } == -1
-                {
-                    return Err(Self::vm_error());
-                }
-
-                iov_iter = iov_local.iter_mut().zip(iov_remote.iter_mut()).enumerate();
-                iov_next = iov_iter.next();
-            }
-        }
-
-        Ok(())
+        let mut iter = data.map(|MemData(addr, data)| MemData(addr.into(), data));
+        self.view.write_raw_iter((&mut iter).into(), out_fail)
     }
 
     fn metadata(&self) -> PhysicalMemoryMetadata {
+        let md = self.view.metadata();
+
         PhysicalMemoryMetadata {
-            max_address: self.mem_map.max_address(),
-            real_size: self.mem_map.real_size(),
-            readonly: false,
-            ideal_batch_size: (self.temp_iov.len() / 2) as u32,
+            max_address: md.max_address,
+            real_size: md.real_size,
+            readonly: md.readonly,
+            ideal_batch_size: 4096,
         }
     }
 }
@@ -294,15 +191,30 @@ fn validator() -> ArgsValidator {
 }
 
 /// Creates a new Qemu Procfs instance.
-#[connector(name = "qemu_procfs", help_fn = "help", target_list_fn = "target_list")]
-pub fn create_connector(args: &Args) -> Result<QemuProcfs> {
+#[connector_bare(name = "qemu", help_fn = "help", target_list_fn = "target_list")]
+pub fn create_connector(
+    args: &Args,
+    os: Option<OsInstanceArcBox<'static>>,
+    lib: CArc<std::ffi::c_void>,
+) -> Result<ConnectorInstanceArcBox<'static>> {
     let validator = validator();
-    match validator.validate(args) {
+
+    let os = if let Some(os) = os {
+        os
+    } else {
+        memflow_native::build_os(
+            &Default::default(),
+            None,
+            Option::<std::sync::Arc<_>>::None.into(),
+        )?
+    };
+
+    let qemu = match validator.validate(args) {
         Ok(_) => {
             if let Some(name) = args.get("name").or_else(|| args.get_default()) {
-                QemuProcfs::with_guest_name(name)
+                QemuProcfs::with_guest_name(os, name)
             } else {
-                QemuProcfs::new()
+                QemuProcfs::new(os)
             }
         }
         Err(err) => {
@@ -312,7 +224,9 @@ pub fn create_connector(args: &Args) -> Result<QemuProcfs> {
             );
             Err(err)
         }
-    }
+    }?;
+
+    Ok(group_obj!((qemu, lib) as ConnectorInstance))
 }
 
 /// Retrieve the help text for the Qemu Procfs Connector.
@@ -335,17 +249,27 @@ Available arguments are:
 
 /// Retrieve a list of all currently available Qemu targets.
 pub fn target_list() -> Result<Vec<TargetInfo>> {
-    Ok(procfs::process::all_processes()
-        .map_err(|_| {
-            Error(ErrorOrigin::Connector, ErrorKind::UnableToReadDir)
-                .log_error("unable to list procfs processes")
-        })?
-        .iter()
-        .filter(|p| is_qemu(p))
-        .filter_map(|p| p.cmdline().ok())
-        .filter_map(|c| qemu_arg_opt(&c, "-name", "guest"))
-        .map(|n| TargetInfo {
-            name: ReprCString::from(n),
-        })
-        .collect::<Vec<_>>())
+    let mut os = memflow_native::build_os(
+        &Default::default(),
+        None,
+        Option::<std::sync::Arc<_>>::None.into(),
+    )?;
+
+    let mut out = vec![];
+
+    let callback = &mut |info: ProcessInfo| {
+        if is_qemu(&info) {
+            if let Some(n) = qemu_arg_opt(info.command_line.split_whitespace(), "-name", "guest") {
+                out.push(TargetInfo {
+                    name: ReprCString::from(n),
+                });
+            }
+        }
+
+        true
+    };
+
+    os.process_info_list_callback(callback.into())?;
+
+    Ok(out)
 }
