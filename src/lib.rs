@@ -193,7 +193,7 @@ fn validator() -> ArgsValidator {
 /// Creates a new Qemu Procfs instance.
 #[connector_bare(name = "qemu", help_fn = "help", target_list_fn = "target_list")]
 pub fn create_connector(
-    args: &Args,
+    args: &ConnectorArgs,
     os: Option<OsInstanceArcBox<'static>>,
     lib: CArc<std::ffi::c_void>,
 ) -> Result<ConnectorInstanceArcBox<'static>> {
@@ -209,9 +209,13 @@ pub fn create_connector(
         )?
     };
 
+    let name = args.target.as_ref().map(|s| &**s);
+
+    let args = &args.extra_args;
+
     let qemu = match validator.validate(args) {
         Ok(_) => {
-            if let Some(name) = args.get("name").or_else(|| args.get_default()) {
+            if let Some(name) = name.or_else(|| args.get("name")) {
                 QemuProcfs::with_guest_name(os, name)
             } else {
                 QemuProcfs::new(os)
