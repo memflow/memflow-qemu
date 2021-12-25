@@ -4,7 +4,6 @@ use memflow::cglue;
 use memflow::connector::cpu_state::*;
 use memflow::mem::memory_view::RemapView;
 use memflow::mem::phys_mem::*;
-use memflow::mem::virt_translate::MemoryRange;
 use memflow::os::root::OsInner;
 use memflow::prelude::v1::*;
 
@@ -82,16 +81,11 @@ impl QemuProcfs {
 
         let mut prc = os.into_process_by_info(info)?;
 
-        let tr_prc = as_mut!(prc impl VirtualTranslate).ok_or(Error(
-            ErrorOrigin::Connector,
-            ErrorKind::UnsupportedOptionalFeature,
-        ))?;
-
         let mut biggest_map = None;
 
         let callback = &mut |range: MemoryRange| {
             if biggest_map
-                .map(|m: MemoryRange| m.size < range.size)
+                .map(|MemData(_, oldsize): MemoryRange| oldsize < range.1)
                 .unwrap_or(true)
             {
                 biggest_map = Some(range);
@@ -100,7 +94,7 @@ impl QemuProcfs {
             true
         };
 
-        tr_prc.virt_page_map_range(
+        prc.mapped_mem_range(
             smem::mb(-1),
             Address::NULL,
             Address::INVALID,

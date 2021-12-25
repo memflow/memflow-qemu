@@ -2,8 +2,9 @@ use log::info;
 
 use crate::qemu_args::qemu_arg_opt;
 
-use memflow::mem::virt_translate::MemoryRange;
-use memflow::prelude::v1::{mem, umem, Address, Error, ErrorKind, ErrorOrigin, MemoryMap, Result};
+use memflow::prelude::v1::{
+    mem, umem, Address, Error, ErrorKind, ErrorOrigin, MemData, MemoryMap, MemoryRange, Result,
+};
 
 #[cfg(feature = "qmp")]
 use qapi::{qmp, Qmp};
@@ -62,7 +63,7 @@ pub fn qemu_mem_mappings(
         mem_map.push_range(
             mapping.range_start.into(),
             mapping.range_end.into(),
-            (qemu_map.address + mapping.remap_start).into(),
+            (qemu_map.0 + mapping.remap_start).into(),
         );
     }
 
@@ -156,8 +157,7 @@ fn qmp_parse_mtree(mtreestr: &str) -> Vec<Mapping> {
     mappings
 }
 
-fn qemu_get_mtree_fallback(machine: &str, qemu_map: &MemoryRange) -> Vec<Mapping> {
-    let map_size = qemu_map.size;
+fn qemu_get_mtree_fallback(machine: &str, &MemData(_, map_size): &MemoryRange) -> Vec<Mapping> {
     info!("qemu memory map size: {:x}", map_size);
 
     if machine.contains("q35") {
