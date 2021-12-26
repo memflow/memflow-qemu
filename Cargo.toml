@@ -34,8 +34,11 @@ memflow-win32 = { git = "https://github.com/memflow/memflow-win32", branch = "ma
 lto = true
 
 [features]
-default = ["qmp"]
+default = []
 inventory = []
+
+[target.'cfg(target_os = "linux")'.features]
+default = ["qmp"]
 qmp = ["qapi", "scan_fmt"]
 
 [[example]]

@@ -189,7 +189,7 @@ fn validator() -> ArgsValidator {
 pub fn create_connector(
     args: &ConnectorArgs,
     os: Option<OsInstanceArcBox<'static>>,
-    lib: CArc<std::ffi::c_void>,
+    lib: LibArc,
 ) -> Result<ConnectorInstanceArcBox<'static>> {
     let validator = validator();
 
