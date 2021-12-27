@@ -29,7 +29,10 @@ pub struct QemuProcfs {
 }
 
 impl QemuProcfs {
-    pub fn new(mut os: OsInstanceArcBox<'static>) -> Result<Self> {
+    pub fn new(
+        mut os: OsInstanceArcBox<'static>,
+        map_override: Option<MemoryRange>,
+    ) -> Result<Self> {
         let mut proc = None;
 
         let callback = &mut |info: ProcessInfo| {
@@ -45,10 +48,15 @@ impl QemuProcfs {
         Self::with_process(
             os,
             proc.ok_or(Error(ErrorOrigin::Connector, ErrorKind::NotFound))?,
+            map_override,
         )
     }
 
-    pub fn with_guest_name(mut os: OsInstanceArcBox<'static>, name: &str) -> Result<Self> {
+    pub fn with_guest_name(
+        mut os: OsInstanceArcBox<'static>,
+        name: &str,
+        map_override: Option<MemoryRange>,
+    ) -> Result<Self> {
         let mut proc = None;
 
         let callback = &mut |info: ProcessInfo| {
@@ -68,10 +76,15 @@ impl QemuProcfs {
         Self::with_process(
             os,
             proc.ok_or(Error(ErrorOrigin::Connector, ErrorKind::NotFound))?,
+            map_override,
         )
     }
 
-    fn with_process(os: OsInstanceArcBox<'static>, info: ProcessInfo) -> Result<Self> {
+    fn with_process(
+        os: OsInstanceArcBox<'static>,
+        info: ProcessInfo,
+        map_override: Option<MemoryRange>,
+    ) -> Result<Self> {
         info!(
             "qemu process with name {} found with pid {:?}",
             info.name, info.pid
@@ -81,7 +94,7 @@ impl QemuProcfs {
 
         let mut prc = os.into_process_by_info(info)?;
 
-        let mut biggest_map = None;
+        let mut biggest_map = map_override;
 
         let callback = &mut |range: MemoryRange| {
             if biggest_map
@@ -94,12 +107,14 @@ impl QemuProcfs {
             true
         };
 
-        prc.mapped_mem_range(
-            smem::mb(-1),
-            Address::NULL,
-            Address::INVALID,
-            callback.into(),
-        );
+        if map_override.is_none() {
+            prc.mapped_mem_range(
+                smem::mb(-1),
+                Address::NULL,
+                Address::INVALID,
+                callback.into(),
+            );
+        }
 
         let qemu_map = biggest_map.ok_or(Error(ErrorOrigin::Connector, ErrorKind::NotFound))?;
 
@@ -182,6 +197,8 @@ fn validator() -> ArgsValidator {
         .arg(ArgDescriptor::new("name").description(
             "the name of the qemu virtual machine (specified with -name when starting qemu)",
         ))
+        .arg(ArgDescriptor::new("map_base").description("override of VM memory base"))
+        .arg(ArgDescriptor::new("map_size").description("override of VM memory size"))
 }
 
 /// Creates a new Qemu Procfs instance.
@@ -209,10 +226,19 @@ pub fn create_connector(
 
     let qemu = match validator.validate(args) {
         Ok(_) => {
+            let map_override = args
+                .get("map_base")
+                .and_then(|base| umem::from_str_radix(base, 16).ok())
+                .zip(
+                    args.get("map_size")
+                        .and_then(|size| umem::from_str_radix(size, 16).ok()),
+                )
+                .map(|(start, size)| MemData(Address::from(start), size));
+
             if let Some(name) = name.or_else(|| args.get("name")) {
-                QemuProcfs::with_guest_name(os, name)
+                QemuProcfs::with_guest_name(os, name, map_override)
             } else {
-                QemuProcfs::new(os)
+                QemuProcfs::new(os, map_override)
             }
         }
         Err(err) => {
