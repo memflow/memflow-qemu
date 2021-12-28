@@ -17,20 +17,17 @@ extern crate scan_fmt;
 mod mem_map;
 use mem_map::qemu_mem_mappings;
 
-cglue_impl_group!(QemuProcfs/*<P: PhysicalMemory + Clone>*/, ConnectorInstance<'a>, { ConnectorCpuStateInner<'a> });
-cglue_impl_group!(
-    QemuProcfs, /*<P: PhysicalMemory + Clone>*/
-    IntoCpuState
-);
+cglue_impl_group!(QemuProcfs<P: MemoryView + Clone>, ConnectorInstance<'a>, { ConnectorCpuStateInner<'a> });
+cglue_impl_group!(QemuProcfs<P: MemoryView + Clone>, IntoCpuState);
 
 #[derive(Clone)]
-pub struct QemuProcfs {
-    view: RemapView<IntoProcessInstanceArcBox<'static>>,
+pub struct QemuProcfs<P: MemoryView> {
+    view: RemapView<P>,
 }
 
-impl QemuProcfs {
-    pub fn new(
-        mut os: OsInstanceArcBox<'static>,
+impl<P: MemoryView + Process> QemuProcfs<P> {
+    pub fn new<O: OsInner<'static, IntoProcessType = P>>(
+        mut os: O,
         map_override: Option<MemoryRange>,
     ) -> Result<Self> {
         let mut proc = None;
@@ -52,8 +49,8 @@ impl QemuProcfs {
         )
     }
 
-    pub fn with_guest_name(
-        mut os: OsInstanceArcBox<'static>,
+    pub fn with_guest_name<O: OsInner<'static, IntoProcessType = P>>(
+        mut os: O,
         name: &str,
         map_override: Option<MemoryRange>,
     ) -> Result<Self> {
@@ -80,8 +77,8 @@ impl QemuProcfs {
         )
     }
 
-    fn with_process(
-        os: OsInstanceArcBox<'static>,
+    fn with_process<O: OsInner<'static, IntoProcessType = P>>(
+        os: O,
         info: ProcessInfo,
         map_override: Option<MemoryRange>,
     ) -> Result<Self> {
@@ -123,11 +120,7 @@ impl QemuProcfs {
         Self::with_cmdline_and_mem(prc, &cmdline, qemu_map)
     }
 
-    fn with_cmdline_and_mem(
-        prc: IntoProcessInstanceArcBox<'static>,
-        cmdline: &str,
-        qemu_map: MemoryRange,
-    ) -> Result<Self> {
+    fn with_cmdline_and_mem(prc: P, cmdline: &str, qemu_map: MemoryRange) -> Result<Self> {
         let mem_map = qemu_mem_mappings(cmdline, &qemu_map)?;
         info!("qemu machine mem_map: {:?}", mem_map);
 
@@ -137,7 +130,7 @@ impl QemuProcfs {
     }
 }
 
-impl PhysicalMemory for QemuProcfs {
+impl<P: MemoryView> PhysicalMemory for QemuProcfs<P> {
     fn phys_read_raw_iter<'a>(
         &mut self,
         data: CIterator<PhysicalReadData<'a>>,
@@ -170,9 +163,9 @@ impl PhysicalMemory for QemuProcfs {
     }
 }
 
-impl<'a> ConnectorCpuStateInner<'a> for QemuProcfs {
-    type CpuStateType = Fwd<&'a mut QemuProcfs>;
-    type IntoCpuStateType = QemuProcfs;
+impl<'a, P: MemoryView + 'static> ConnectorCpuStateInner<'a> for QemuProcfs<P> {
+    type CpuStateType = Fwd<&'a mut QemuProcfs<P>>;
+    type IntoCpuStateType = QemuProcfs<P>;
 
     fn cpu_state(&'a mut self) -> Result<Self::CpuStateType> {
         Ok(self.forward_mut())
@@ -183,7 +176,7 @@ impl<'a> ConnectorCpuStateInner<'a> for QemuProcfs {
     }
 }
 
-impl CpuState for QemuProcfs {
+impl<P: MemoryView> CpuState for QemuProcfs<P> {
     fn pause(&mut self) {}
 
     fn resume(&mut self) {}
@@ -210,15 +203,13 @@ pub fn create_connector(
 ) -> Result<ConnectorInstanceArcBox<'static>> {
     let validator = validator();
 
-    let os = if let Some(os) = os {
-        os
-    } else {
+    let os = os.map(Result::Ok).unwrap_or_else(|| {
         memflow_native::build_os(
             &Default::default(),
             None,
             Option::<std::sync::Arc<_>>::None.into(),
-        )?
-    };
+        )
+    })?;
 
     let name = args.target.as_ref().map(|s| &**s);
 
