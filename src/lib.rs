@@ -196,13 +196,11 @@ fn validator() -> ArgsValidator {
 
 /// Creates a new Qemu Procfs instance.
 #[connector_bare(name = "qemu", help_fn = "help", target_list_fn = "target_list")]
-pub fn create_connector(
+fn create_plugin(
     args: &ConnectorArgs,
     os: Option<OsInstanceArcBox<'static>>,
     lib: LibArc,
 ) -> Result<ConnectorInstanceArcBox<'static>> {
-    let validator = validator();
-
     let os = os.map(Result::Ok).unwrap_or_else(|| {
         memflow_native::build_os(
             &Default::default(),
@@ -210,6 +208,30 @@ pub fn create_connector(
             Option::<std::sync::Arc<_>>::None.into(),
         )
     })?;
+
+    let qemu = create_connector_full(args, os)?;
+
+    Ok(group_obj!((qemu, lib) as ConnectorInstance))
+}
+
+pub fn create_connector(
+    args: &ConnectorArgs,
+) -> Result<QemuProcfs<IntoProcessInstanceArcBox<'static>>> {
+    create_connector_full(
+        args,
+        memflow_native::build_os(
+            &Default::default(),
+            None,
+            Option::<std::sync::Arc<_>>::None.into(),
+        )?,
+    )
+}
+
+pub fn create_connector_full<O: OsInner<'static>>(
+    args: &ConnectorArgs,
+    os: O,
+) -> Result<QemuProcfs<O::IntoProcessType>> {
+    let validator = validator();
 
     let name = args.target.as_ref().map(|s| &**s);
 
@@ -241,7 +263,7 @@ pub fn create_connector(
         }
     }?;
 
-    Ok(group_obj!((qemu, lib) as ConnectorInstance))
+    Ok(qemu)
 }
 
 /// Retrieve the help text for the Qemu Procfs Connector.

@@ -27,9 +27,9 @@ fn main() {
         .unwrap();
 
     let connector_args = if let Some(arg) = args().nth(1) {
-        Args::parse(arg.as_ref()).expect("unable to parse command line arguments")
+        str::parse(arg.as_ref()).expect("unable to parse command line arguments")
     } else {
-        Args::default()
+        Default::default()
     };
 
     let connector = memflow_qemu::create_connector(&connector_args)

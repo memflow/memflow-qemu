@@ -28,17 +28,17 @@ fn main() {
         .unwrap();
 
     let connector_args = if let Some(arg) = args().nth(1) {
-        Args::parse(arg.as_ref()).expect("unable to parse command line arguments")
+        Some(str::parse(arg.as_ref()).expect("unable to parse command line arguments"))
     } else {
-        Args::default()
+        None
     };
 
     let inventory = Inventory::scan();
     let connector = inventory
-        .create_connector("qemu_procfs", None, &connector_args)
+        .create_connector("qemu_procfs", None, connector_args.as_ref())
         .expect("unable to create qemu_procfs connector");
     let mut os = inventory
-        .create_os("win32", Some(connector), &Args::default())
+        .create_os("win32", Some(connector), None)
         .expect("unable to create win32 instance with qemu_procfs connector");
 
     let process_list = os.process_info_list().expect("unable to read process list");
