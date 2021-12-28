@@ -226,6 +226,7 @@ fn qemu_get_mtree_fallback_pc(map_size: umem) -> Vec<Mapping> {
 }
 
 #[cfg(test)]
+#[cfg(feature = "qmp")]
 mod tests {
     use super::qmp_parse_mtree;
 
