@@ -27,11 +27,9 @@ fn main() {
         .init()
         .unwrap();
 
-    let connector_args = if let Some(arg) = args().nth(1) {
-        Some(str::parse(arg.as_ref()).expect("unable to parse command line arguments"))
-    } else {
-        None
-    };
+    let connector_args = args()
+        .nth(1)
+        .map(|arg| str::parse(arg.as_ref()).expect("unable to parse command line arguments"));
 
     let inventory = Inventory::scan();
     let connector = inventory

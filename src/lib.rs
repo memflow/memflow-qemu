@@ -37,7 +37,7 @@ impl<P: MemoryView + Process> QemuProcfs<P> {
                 proc = Some(info);
             }
 
-            !proc.is_some()
+            proc.is_none()
         };
 
         os.process_info_list_callback(callback.into())?;
@@ -65,7 +65,7 @@ impl<P: MemoryView + Process> QemuProcfs<P> {
                 proc = Some(info);
             }
 
-            !proc.is_some()
+            proc.is_none()
         };
 
         os.process_info_list_callback(callback.into())?;
@@ -233,7 +233,7 @@ pub fn create_connector_full<O: OsInner<'static>>(
 ) -> Result<QemuProcfs<O::IntoProcessType>> {
     let validator = validator();
 
-    let name = args.target.as_ref().map(|s| &**s);
+    let name = args.target.as_deref();
 
     let args = &args.extra_args;
 

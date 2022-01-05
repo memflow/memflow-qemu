@@ -45,7 +45,7 @@ pub fn qemu_mem_mappings(
         let machine = if !cmdline.is_empty()
             && cmdline
                 .split_whitespace()
-                .nth(0)
+                .next()
                 .unwrap()
                 .contains("aarch64")
         {
@@ -63,7 +63,7 @@ pub fn qemu_mem_mappings(
         mem_map.push_range(
             mapping.range_start.into(),
             mapping.range_end.into(),
-            (qemu_map.0 + mapping.remap_start).into(),
+            qemu_map.0 + mapping.remap_start,
         );
     }
 
@@ -120,7 +120,7 @@ fn qmp_get_mtree_stream<S: Read + Write + Clone>(stream: S) -> Result<Vec<Mappin
 }
 
 #[cfg(not(feature = "qmp"))]
-fn qmp_get_mtree<'a>(cmdline: impl IntoIterator<Item = &'a str>) -> Result<Vec<Mapping>> {
+fn qmp_get_mtree<'a>(_cmdline: impl IntoIterator<Item = &'a str>) -> Result<Vec<Mapping>> {
     Err(Error(
         ErrorOrigin::Connector,
         ErrorKind::UnsupportedOptionalFeature,
