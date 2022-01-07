@@ -20,13 +20,14 @@ memflow = { git = "https://github.com/memflow/memflow", branch = "next", feature
 #memflow = { path = "../memflow/memflow", features = ["plugins"] }
 memflow-native = { git = "https://github.com/memflow/memflow-native", branch = "main" }
 #memflow-native = { path = "../memflow-native" }
-log = "0.4"
-qapi = { version = "0.8.0", features = ["qmp"], optional = true }
-scan_fmt = { version = "0.2", optional = true }
+log = "^0.4.14"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+qapi = { version = "^0.8", features = ["qmp"], optional = true }
+scan_fmt = { version = "^0.2.6", optional = true }
 
 [dev-dependencies]
-clap = "2.33"
-simple_logger = "1.0"
+simplelog = "^0.11.1"
 memflow-win32 = { git = "https://github.com/memflow/memflow-win32", branch = "main" }
 #memflow-win32 = { path = "../memflow/memflow-win32" }
 
@@ -34,10 +35,6 @@ memflow-win32 = { git = "https://github.com/memflow/memflow-win32", branch = "ma
 lto = true
 
 [features]
-default = []
-inventory = []
-
-[target.'cfg(target_os = "linux")'.features]
 default = ["qmp"]
 qmp = ["qapi", "scan_fmt"]
 

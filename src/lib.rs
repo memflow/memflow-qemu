@@ -10,7 +10,7 @@ use memflow::prelude::v1::*;
 mod qemu_args;
 use qemu_args::{is_qemu, qemu_arg_opt};
 
-#[cfg(feature = "qmp")]
+#[cfg(all(target_os = "linux", feature = "qmp"))]
 #[macro_use]
 extern crate scan_fmt;
 

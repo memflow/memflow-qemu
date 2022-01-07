@@ -6,14 +6,13 @@ use memflow::prelude::v1::{
     mem, umem, Address, Error, ErrorKind, ErrorOrigin, MemData, MemoryMap, MemoryRange, Result,
 };
 
-#[cfg(feature = "qmp")]
-use qapi::{qmp, Qmp};
-#[cfg(feature = "qmp")]
-use std::io::{Read, Write};
-#[cfg(feature = "qmp")]
-use std::net::TcpStream;
-#[cfg(feature = "qmp")]
-use std::os::unix::net::UnixStream;
+#[cfg(all(target_os = "linux", feature = "qmp"))]
+use {
+    qapi::{qmp, Qmp},
+    std::io::{Read, Write},
+    std::net::TcpStream,
+    std::os::unix::net::UnixStream,
+};
 
 #[derive(Debug, Clone)]
 struct Mapping {
@@ -70,7 +69,7 @@ pub fn qemu_mem_mappings(
     Ok(mem_map)
 }
 
-#[cfg(feature = "qmp")]
+#[cfg(all(target_os = "linux", feature = "qmp"))]
 fn qmp_get_mtree<'a>(cmdline: impl IntoIterator<Item = &'a str>) -> Result<Vec<Mapping>> {
     // -qmp unix:/tmp/qmp-win10-reversing.sock,server,nowait
     let socket_addr = qemu_arg_opt(cmdline, "-qmp", "")
@@ -103,7 +102,7 @@ fn qmp_get_mtree<'a>(cmdline: impl IntoIterator<Item = &'a str>) -> Result<Vec<M
     }
 }
 
-#[cfg(feature = "qmp")]
+#[cfg(all(target_os = "linux", feature = "qmp"))]
 fn qmp_get_mtree_stream<S: Read + Write + Clone>(stream: S) -> Result<Vec<Mapping>> {
     let mut qmp = Qmp::from_stream(stream);
     qmp.handshake()
@@ -127,7 +126,7 @@ fn qmp_get_mtree<'a>(_cmdline: impl IntoIterator<Item = &'a str>) -> Result<Vec<
     ))
 }
 
-#[cfg(feature = "qmp")]
+#[cfg(all(target_os = "linux", feature = "qmp"))]
 fn qmp_parse_mtree(mtreestr: &str) -> Vec<Mapping> {
     let mut mappings = Vec::new();
     for line in mtreestr
@@ -226,7 +225,7 @@ fn qemu_get_mtree_fallback_pc(map_size: umem) -> Vec<Mapping> {
 }
 
 #[cfg(test)]
-#[cfg(feature = "qmp")]
+#[cfg(all(target_os = "linux", feature = "qmp"))]
 mod tests {
     use super::qmp_parse_mtree;
 

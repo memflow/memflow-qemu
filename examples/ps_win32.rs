@@ -21,10 +21,13 @@ use memflow::prelude::v1::*;
 use memflow_win32::prelude::v1::*;
 
 fn main() {
-    simple_logger::SimpleLogger::new()
-        .with_level(Level::Debug.to_level_filter())
-        .init()
-        .unwrap();
+    simplelog::TermLogger::init(
+        Level::Debug.to_level_filter(),
+        simplelog::Config::default(),
+        simplelog::TerminalMode::Stdout,
+        simplelog::ColorChoice::Auto,
+    )
+    .unwrap();
 
     let connector_args = if let Some(arg) = args().nth(1) {
         str::parse(arg.as_ref()).expect("unable to parse command line arguments")
