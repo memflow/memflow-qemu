@@ -44,10 +44,10 @@ impl<P: MemoryView + Process> QemuProcfs<P> {
 
         Self::with_process(
             os,
-            proc.ok_or(
+            proc.ok_or_else(|| {
                 Error(ErrorOrigin::Connector, ErrorKind::TargetNotFound)
-                    .log_error("No qemu process could be found. Is qemu running?"),
-            )?,
+                    .log_error("No qemu process could be found. Is qemu running?")
+            })?,
             map_override,
         )
     }
@@ -75,7 +75,7 @@ impl<P: MemoryView + Process> QemuProcfs<P> {
 
         Self::with_process(
             os,
-            proc.ok_or(
+            proc.ok_or_else(||
                 Error(ErrorOrigin::Connector, ErrorKind::TargetNotFound)
                     .log_error("A qemu process for the specified guest name could not be found. Is the qemu process running?")
             )?,
