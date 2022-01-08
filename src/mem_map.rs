@@ -118,7 +118,7 @@ fn qmp_get_mtree_stream<S: Read + Write + Clone>(stream: S) -> Result<Vec<Mappin
     Ok(qmp_parse_mtree(&mtreestr))
 }
 
-#[cfg(not(feature = "qmp"))]
+#[cfg(not(all(target_os = "linux", feature = "qmp")))]
 fn qmp_get_mtree<'a>(_cmdline: impl IntoIterator<Item = &'a str>) -> Result<Vec<Mapping>> {
     Err(Error(
         ErrorOrigin::Connector,

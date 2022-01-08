@@ -7,22 +7,23 @@ env:
 
 jobs:
 
-  build:
-    runs-on: ubuntu-latest
+  build_x86-64:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v2
-
       - name: Build
         run: cargo build --workspace --all-features --verbose
 
-      - name: Build examples
-        run: cargo build --workspace --examples --verbose
-          
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v2
-
       - name: Run all tests
         run: cargo test --workspace --verbose
 

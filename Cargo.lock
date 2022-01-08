@@ -611,7 +611,7 @@ dependencies = [
 [[package]]
 name = "memflow-native"
 version = "0.1.0"
-source = "git+https://github.com/memflow/memflow-native?branch=main#e8f47401914f643561764a391caa6a0a8fc15552"
+source = "git+https://github.com/memflow/memflow-native?branch=main#5050412d12904142b2bd60d9dd11f201a9c322a8"
 dependencies = [
  "goblin",
  "itertools",
