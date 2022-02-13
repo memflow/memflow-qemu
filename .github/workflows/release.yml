@@ -10,7 +10,7 @@ env:
 jobs:
 
   generate_ubuntu_x86-64:
-    name: Create artifacts for x86-64/ubuntu-latest
+    name: Publish artifacts for ubuntu-latest (x86-64)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2

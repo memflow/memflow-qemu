@@ -1,6 +1,6 @@
 # memflow-qemu-procfs
 
-This connector implements an interface for Qemu via the Process Filesystem on Linux.
+The qemu-procfs connector implements a memflow plugin interface for Qemu on top of the Process Filesystem on Linux.
 
 ## Compilation
 
@@ -12,7 +12,6 @@ Additionally the `--system` flag can be specified which will install the connect
 
 ### Building the stand-alone connector for dynamic loading
 
-The stand-alone connector of this library is feature-gated behind the `inventory` feature.
 To compile a dynamic library for use with the connector inventory use the following command:
 
 ```
@@ -33,6 +32,8 @@ This might cause duplicated exports being generated in your project.
 
 ## Arguments
 
+The following arguments can be used when loading the connector:
+
 - `name` - the name of the virtual machine (default argument, optional)
 
 ## Permissions
@@ -45,6 +46,50 @@ sudo setcap 'CAP_SYS_PTRACE=ep' [filename]
 ```
 
 Alternatively you can just run the binary via `sudo`.
+
+## Memory Mappings
+
+The connector supports dynamic acquisition of the qemu memory mappings by utilizing the [qemu qmp protocol](https://qemu.readthedocs.io/en/latest/interop/qemu-qmp-ref.html).
+
+To enable qmp on a virtual machine simply add this to the qemu command line:
+```
+-qmp unix:/tmp/qmp-my-vm.sock,server,nowait
+```
+
+Alternatively a tcp server can be exposed:
+```
+-qmp tcp:localhost:12345,server,nowait
+```
+
+Or via libvirt:
+```xml
+<domain xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0" type="kvm">
+
+...
+
+  </devices>
+  <qemu:commandline>
+    <qemu:arg value="-qmp"/>
+    <qemu:arg value="unix:/tmp/qmp-my-vm.sock,server,nowait"/>
+  </qemu:commandline>
+</domain>
+```
+
+Please refer to the qemu qmp manual for more information about how to configure this feature.
+
+In case qmp is not active or could not be fetched, the connector falls back to hard-coded mapping tables for specific qemu machine types.
+
+## Running Examples
+
+Analog to the examples found in the main memflow repository examples can be run via:
+
+```bash
+RUST_SETPTRACE=1 cargo run --example read_phys --release
+RUST_SETPTRACE=1 cargo run --example ps_win32 --release
+RUST_SETPTRACE=1 cargo run --example ps_inventory --release
+```
+
+For more information about `RUST_SETPTRACE` and how to run examples see the [running-examples](https://github.com/memflow/memflow#running-examples) section in the main memflow repository. 
 
 ## License
 
