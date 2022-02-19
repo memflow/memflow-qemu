@@ -149,9 +149,9 @@ checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
 name = "cc"
-version = "1.0.72"
+version = "1.0.73"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22a9137b95ea06864e018375b72adfb7db6e6f68cfc8df5a04d00288050485ee"
+checksum = "2fff2a6927b3bb87f9595d67196a70493f627687a71d87a0d692242c33f58c11"
 
 [[package]]
 name = "cfg-if"
@@ -167,9 +167,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "cglue"
-version = "0.2.5"
+version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9537a13fdbce0f3ef3fbc55d70dfd93c807c9c71fbdf97950da033ab1ef5a5ad"
+checksum = "b6504256bcb285d53fd267c524816b219ea8eb4b376f8ddde9297483ed77de78"
 dependencies = [
  "abi_stable",
  "cglue-macro",
@@ -179,9 +179,9 @@ dependencies = [
 
 [[package]]
 name = "cglue-gen"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8693afab1b06d4722b35d51bc4c4ea7a41887e3f95ad4a67b73bb82cf7efe7c1"
+checksum = "6d45b1d0735cf0c3f21ea1ecc666f7d2add6b89e462bee7b8401cf0823eddc64"
 dependencies = [
  "itertools",
  "lazy_static",
@@ -193,9 +193,9 @@ dependencies = [
 
 [[package]]
 name = "cglue-macro"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a29a3b995b31756072458741810fd9ffe73b0a5fafa6ad08324b463c44ef528"
+checksum = "8285aff09f786d2f084779793728e050af8c446c32f240778d01f7e095c91614"
 dependencies = [
  "cglue-gen",
  "proc-macro2",
@@ -526,9 +526,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.117"
+version = "0.2.119"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e74d72e0f9b65b5b4ca49a346af3976df0f9c61d550727f349ecd559f251a26c"
+checksum = "1bf2e165bb3457c8e098ea76f3e3bc9db55f87aa90d52d0e6be741470916aaa4"
 
 [[package]]
 name = "libloading"
@@ -805,9 +805,9 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
 name = "proc-macro-crate"
-version = "1.1.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ebace6889caf889b4d3f76becee12e90353f2b8c7d875534a71e5742f8f6f83"
+checksum = "9dada8c9981fcf32929c3c0f0cd796a9284aca335565227ed88c83babb1d43dc"
 dependencies = [
  "thiserror",
  "toml",
@@ -999,9 +999,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.20.3"
+version = "0.20.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b323592e3164322f5b193dc4302e4e36cd8d37158a712d664efae1a5c2791700"
+checksum = "4fbfeb8d0ddb84706bc597a5574ab8912817c52a397f819e5b614e2265206921"
 dependencies = [
  "log",
  "ring",
