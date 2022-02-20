@@ -28,7 +28,7 @@ pub struct QemuProcfs<P: MemoryView> {
 impl<P: MemoryView + Process> QemuProcfs<P> {
     pub fn new<O: OsInner<'static, IntoProcessType = P>>(
         mut os: O,
-        map_override: Option<MemoryRange>,
+        map_override: Option<CTup2<Address, umem>>,
     ) -> Result<Self> {
         let mut proc = None;
 
@@ -55,7 +55,7 @@ impl<P: MemoryView + Process> QemuProcfs<P> {
     pub fn with_guest_name<O: OsInner<'static, IntoProcessType = P>>(
         mut os: O,
         name: &str,
-        map_override: Option<MemoryRange>,
+        map_override: Option<CTup2<Address, umem>>,
     ) -> Result<Self> {
         let mut proc = None;
 
@@ -86,7 +86,7 @@ impl<P: MemoryView + Process> QemuProcfs<P> {
     fn with_process<O: OsInner<'static, IntoProcessType = P>>(
         os: O,
         info: ProcessInfo,
-        map_override: Option<MemoryRange>,
+        map_override: Option<CTup2<Address, umem>>,
     ) -> Result<Self> {
         info!(
             "qemu process with name {} found with pid {:?}",
@@ -101,10 +101,10 @@ impl<P: MemoryView + Process> QemuProcfs<P> {
 
         let callback = &mut |range: MemoryRange| {
             if biggest_map
-                .map(|MemData(_, oldsize): MemoryRange| oldsize < range.1)
+                .map(|CTup2(_, oldsize)| oldsize < range.1)
                 .unwrap_or(true)
             {
-                biggest_map = Some(range);
+                biggest_map = Some(CTup2(range.0, range.1));
             }
 
             true
@@ -126,7 +126,7 @@ impl<P: MemoryView + Process> QemuProcfs<P> {
         Self::with_cmdline_and_mem(prc, &cmdline, qemu_map)
     }
 
-    fn with_cmdline_and_mem(prc: P, cmdline: &str, qemu_map: MemoryRange) -> Result<Self> {
+    fn with_cmdline_and_mem(prc: P, cmdline: &str, qemu_map: CTup2<Address, umem>) -> Result<Self> {
         let mem_map = qemu_mem_mappings(cmdline, &qemu_map)?;
         info!("qemu machine mem_map: {:?}", mem_map);
 
@@ -137,24 +137,20 @@ impl<P: MemoryView + Process> QemuProcfs<P> {
 }
 
 impl<P: MemoryView> PhysicalMemory for QemuProcfs<P> {
-    fn phys_read_raw_iter<'a>(
+    fn phys_read_raw_iter(
         &mut self,
-        data: CIterator<PhysicalReadData<'a>>,
-        out_fail: &mut ReadFailCallback<'_, 'a>,
+        MemOps { inp, out, out_fail }: PhysicalReadMemOps,
     ) -> Result<()> {
-        let mut iter = data.map(|MemData(addr, data)| MemData(addr.into(), data));
-        let fail = &mut |MemData(a, b): ReadData<'a>| out_fail.call(MemData(a, b));
-        self.view
-            .read_raw_iter((&mut iter).into(), &mut (fail.into()))
+        let inp = inp.map(|CTup3(addr, meta_addr, data)| CTup3(addr.into(), meta_addr, data));
+        MemOps::with_raw(inp, out, out_fail, |data| self.view.read_raw_iter(data))
     }
 
-    fn phys_write_raw_iter<'a>(
+    fn phys_write_raw_iter(
         &mut self,
-        data: CIterator<PhysicalWriteData<'a>>,
-        out_fail: &mut WriteFailCallback<'_, 'a>,
+        MemOps { inp, out, out_fail }: PhysicalWriteMemOps,
     ) -> Result<()> {
-        let mut iter = data.map(|MemData(addr, data)| MemData(addr.into(), data));
-        self.view.write_raw_iter((&mut iter).into(), out_fail)
+        let inp = inp.map(|CTup3(addr, meta_addr, data)| CTup3(addr.into(), meta_addr, data));
+        MemOps::with_raw(inp, out, out_fail, |data| self.view.write_raw_iter(data))
     }
 
     fn metadata(&self) -> PhysicalMemoryMetadata {
@@ -252,7 +248,7 @@ pub fn create_connector_full<O: OsInner<'static>>(
                     args.get("map_size")
                         .and_then(|size| umem::from_str_radix(size, 16).ok()),
                 )
-                .map(|(start, size)| MemData(Address::from(start), size));
+                .map(|(start, size)| CTup2(Address::from(start), size));
 
             if let Some(name) = name.or_else(|| args.get("name")) {
                 QemuProcfs::with_guest_name(os, name, map_override)
