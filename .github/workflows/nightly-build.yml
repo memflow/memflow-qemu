@@ -1,0 +1,41 @@
+name: Nightly build
+
+on:
+  push:
+    branch:
+      - 'main'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+
+  cross-build:
+    name: Publish artifacts for ubuntu-latest (x86-64)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: ["x86_64-unknown-linux-gnu"] #, "i686-unknown-linux-gnu", "x86_64-pc-windows-gnu", "i686-pc-windows-gnu"]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Build artifacts
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --all-features --workspace --verbose --target ${{ matrix.target }}
+      - name: Rename and collect artifacts
+        id: artifacts
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/memflow/memflowup/master/target_rename.sh > target_rename.sh
+          echo "::set-output artifact=$(sh ./target_rename.sh \"${{ matrix.target }}\" | head -n 1)"
+      - name: Upload build artifacts
+        uses: skx/github-action-publish-binaries@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: ${{ steps.artifacts.artifact }}
+          releaseId: 60110560
