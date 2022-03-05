@@ -1,40 +1,38 @@
-# memflow-qemu-procfs
+# memflow-qemu
 
-The qemu-procfs connector implements a memflow plugin interface for Qemu on top of the Process Filesystem on Linux.
+The qemu connector implements a memflow plugin interface for Qemu on top of the Process Filesystem on Linux.
 
 ## Compilation
 
 ### Installing the library
 
-The `./install.sh` script will just compile and install the plugin.
-The connector will be installed to `~/.local/lib/memflow` by default.
-Additionally the `--system` flag can be specified which will install the connector in `/usr/lib/memflow` as well.
+The recommended way to install memflow connectors is using [memflowup](https://github.com/memflow/memflowup#memflow-setup-tool).
 
-### Building the stand-alone connector for dynamic loading
+### Development builds
 
-To compile a dynamic library for use with the connector inventory use the following command:
+To compile the connector as dynamic library to be used with the memflow plugin system use the following command:
 
 ```
 cargo build --release --all-features
 ```
 
-### Using the crate in a rust project
+The plugin can then be found in the `target/release/` directory and has to be copied to one of [memflows default search paths](https://github.com/memflow/memflow/blob/main/memflow/src/plugins/mod.rs#L379).
+
+### Linking the crate statically in a rust project
 
 To use the connector in a rust project just include it in your Cargo.toml
 
 ```
-memflow-qemu-procfs = "0.1"
+memflow-qemu = "^0.2.0-beta"
 ```
-
-Make sure to not enable the `inventory` feature when importing multiple
-connectors in a rust project without using the memflow connector inventory.
-This might cause duplicated exports being generated in your project.
 
 ## Arguments
 
 The following arguments can be used when loading the connector:
 
-- `name` - the name of the virtual machine (default argument, optional)
+- `name` - the name of the qemu virtual machine (default argument, optional)
+- `map_base` - overrides the default VM memory base (optional)
+- `map_size` - overrides the default VM memory size (optional)
 
 ## Permissions
 
@@ -75,7 +73,7 @@ Or via libvirt:
 </domain>
 ```
 
-Please refer to the qemu qmp manual for more information about how to configure this feature.
+Please refer to the qemu [qmp manual](https://wiki.qemu.org/Documentation/QMP) for more information about how to configure this feature.
 
 In case qmp is not active or could not be fetched, the connector falls back to hard-coded mapping tables for specific qemu machine types.
 
