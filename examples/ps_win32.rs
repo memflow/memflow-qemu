@@ -1,5 +1,5 @@
 /*!
-This example shows how to use the qemu_procfs connector in conjunction
+This example shows how to use the qemu connector in conjunction
 with a specific OS layer. This example does not use the `Inventory` feature of memflow
 but hard-wires the connector instance with the OS layer directly.
 
@@ -36,12 +36,12 @@ fn main() {
     };
 
     let connector = memflow_qemu::create_connector(&connector_args)
-        .expect("unable to create qemu_procfs connector");
+        .expect("unable to initialize qemu connector");
 
     let mut os = Win32Kernel::builder(connector)
         .build_default_caches()
         .build()
-        .expect("unable to create win32 instance with qemu_procfs connector");
+        .expect("unable to create win32 instance with qemu connector");
 
     let process_list = os.process_info_list().expect("unable to read process list");
 

@@ -38,7 +38,7 @@ The following arguments can be used when loading the connector:
 
 ## Permissions
 
-The `qemu_procfs` connector requires access to the qemu process via the linux procfs. This means any process which loads this connector requires to have at least ptrace permissions set.
+The `qemu` connector requires access to the qemu process via the linux procfs. This means any process which loads this connector requires to have at least ptrace permissions set.
 
 To set ptrace permissions on a binary simply use:
 ```bash

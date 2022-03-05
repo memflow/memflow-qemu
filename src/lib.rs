@@ -273,7 +273,7 @@ pub fn help() -> String {
     let validator = validator();
     format!(
         "\
-The `qemu_procfs` connector implements a memflow plugin interface
+The `qemu` connector implements a memflow plugin interface
 for Qemu on top of the Process Filesystem on Linux.
 
 This connector requires access to the qemu process via the linux procfs.

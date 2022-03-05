@@ -1,5 +1,5 @@
 /*!
-This example shows how to use the qemu_procfs connector to read physical_memory
+This example shows how to use the qemu connector to read physical_memory
 from a target machine. It also evaluates the number of read cycles per second
 and prints them to stdout.
 */
@@ -19,7 +19,7 @@ fn main() {
     .unwrap();
 
     let mut connector = memflow_qemu::create_connector(&Default::default())
-        .expect("unable to create qemu_procfs connector");
+        .expect("unable to initialize qemu connector");
 
     let metadata = connector.metadata();
     info!("Received metadata: {:?}", metadata);
