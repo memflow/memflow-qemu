@@ -186,12 +186,6 @@ impl<P: MemoryView> CpuState for QemuProcfs<P> {
 
 fn validator() -> ArgsValidator {
     ArgsValidator::new()
-        .arg(ArgDescriptor::new("default").description(
-            "the name of the qemu virtual machine (specified with -name when starting qemu)",
-        ))
-        .arg(ArgDescriptor::new("name").description(
-            "the name of the qemu virtual machine (specified with -name when starting qemu)",
-        ))
         .arg(ArgDescriptor::new("map_base").description("override of VM memory base"))
         .arg(ArgDescriptor::new("map_size").description("override of VM memory size"))
 }
@@ -274,11 +268,14 @@ pub fn help() -> String {
     format!(
         "\
 The `qemu` connector implements a memflow plugin interface
-for Qemu on top of the Process Filesystem on Linux.
+for QEMU on top of the Process Filesystem on Linux.
 
 This connector requires access to the qemu process via the linux procfs.
 This means any process which loads this connector requires
 to have at least ptrace permissions set.
+
+The `target` argument specifies the target qemu virtual machine.
+The qemu virtual machine name can be specified when starting qemu with the -name flag.
 
 Available arguments are:
 {}",

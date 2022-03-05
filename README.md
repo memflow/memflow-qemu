@@ -28,9 +28,10 @@ memflow-qemu = "^0.2.0-beta"
 
 ## Arguments
 
-The following arguments can be used when loading the connector:
+The `target` argument specifies the name of the qemu virtual machine (specified with -name when starting qemu).
 
-- `name` - the name of the qemu virtual machine (default argument, optional)
+The following additional arguments can be used when loading the connector:
+
 - `map_base` - overrides the default VM memory base (optional)
 - `map_size` - overrides the default VM memory size (optional)
 
