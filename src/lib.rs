@@ -46,7 +46,7 @@ impl<P: MemoryView + Process> QemuProcfs<P> {
             os,
             proc.ok_or_else(|| {
                 Error(ErrorOrigin::Connector, ErrorKind::TargetNotFound)
-                    .log_error("No qemu process could be found. Is qemu running?")
+                    .log_error("No QEMU process could be found. Is QEMU running?")
             })?,
             map_override,
         )
@@ -77,7 +77,7 @@ impl<P: MemoryView + Process> QemuProcfs<P> {
             os,
             proc.ok_or_else(||
                 Error(ErrorOrigin::Connector, ErrorKind::TargetNotFound)
-                    .log_error("A qemu process for the specified guest name could not be found. Is the qemu process running?")
+                    .log_error("A QEMU process for the specified guest name could not be found. Is the QEMU process running?")
             )?,
             map_override,
         )
@@ -119,7 +119,9 @@ impl<P: MemoryView + Process> QemuProcfs<P> {
             );
         }
 
-        let qemu_map = biggest_map.ok_or(Error(ErrorOrigin::Connector, ErrorKind::NotFound))?;
+        let qemu_map = biggest_map.ok_or_else(|| Error(ErrorOrigin::Connector, ErrorKind::NotFound)
+            .log_error("Unable to find the QEMU guest memory map. This usually indicates insufficient permissions to acquire the QEMU memory maps. Are you running with appropiate access rights?")
+        )?;
 
         info!("qemu memory map found {:?}", qemu_map);
 
