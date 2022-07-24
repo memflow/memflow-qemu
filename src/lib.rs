@@ -212,13 +212,25 @@ fn create_plugin(
         )
     })?;
 
-    let qemu = create_connector_full(args, os)?;
+    let qemu = create_connector_with_os(args, os)?;
     Ok(memflow::plugins::connector::create_instance(
         qemu, lib, args, false,
     ))
 }
 
-pub fn create_connector_full<O: OsInner<'static>>(
+pub fn create_connector(
+    args: &ConnectorArgs,
+) -> Result<QemuProcfs<IntoProcessInstanceArcBox<'static>>> {
+    create_connector_with_os(
+        args,
+        memflow_native::create_os(
+            &Default::default(),
+            Option::<std::sync::Arc<_>>::None.into(),
+        )?,
+    )
+}
+
+pub fn create_connector_with_os<O: OsInner<'static>>(
     args: &ConnectorArgs,
     os: O,
 ) -> Result<QemuProcfs<O::IntoProcessType>> {
@@ -274,7 +286,7 @@ The qemu virtual machine name can be specified when starting qemu with the -name
 
 Available arguments are:
 {}",
-        validator.to_string()
+        validator
     )
 }
 
