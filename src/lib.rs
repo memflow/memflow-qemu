@@ -193,36 +193,29 @@ fn validator() -> ArgsValidator {
 }
 
 /// Creates a new Qemu Procfs instance.
-#[connector_bare(name = "qemu", help_fn = "help", target_list_fn = "target_list")]
+#[connector(
+    name = "qemu",
+    help_fn = "help",
+    target_list_fn = "target_list",
+    accept_input = true,
+    return_wrapped = true
+)]
 fn create_plugin(
     args: &ConnectorArgs,
     os: Option<OsInstanceArcBox<'static>>,
     lib: LibArc,
 ) -> Result<ConnectorInstanceArcBox<'static>> {
     let os = os.map(Result::Ok).unwrap_or_else(|| {
-        memflow_native::build_os(
+        memflow_native::create_os(
             &Default::default(),
-            None,
             Option::<std::sync::Arc<_>>::None.into(),
         )
     })?;
 
     let qemu = create_connector_full(args, os)?;
-
-    Ok(group_obj!((qemu, lib) as ConnectorInstance))
-}
-
-pub fn create_connector(
-    args: &ConnectorArgs,
-) -> Result<QemuProcfs<IntoProcessInstanceArcBox<'static>>> {
-    create_connector_full(
-        args,
-        memflow_native::build_os(
-            &Default::default(),
-            None,
-            Option::<std::sync::Arc<_>>::None.into(),
-        )?,
-    )
+    Ok(memflow::plugins::connector::create_instance(
+        qemu, lib, args, false,
+    ))
 }
 
 pub fn create_connector_full<O: OsInner<'static>>(
@@ -287,9 +280,8 @@ Available arguments are:
 
 /// Retrieve a list of all currently available Qemu targets.
 pub fn target_list() -> Result<Vec<TargetInfo>> {
-    let mut os = memflow_native::build_os(
+    let mut os = memflow_native::create_os(
         &Default::default(),
-        None,
         Option::<std::sync::Arc<_>>::None.into(),
     )?;
 
