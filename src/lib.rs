@@ -17,7 +17,7 @@ extern crate scan_fmt;
 mod mem_map;
 use mem_map::qemu_mem_mappings;
 
-cglue_impl_group!(QemuProcfs<P: MemoryView + Clone>, ConnectorInstance<'a>, { ConnectorCpuStateInner<'a> });
+cglue_impl_group!(QemuProcfs<P: MemoryView + Clone>, ConnectorInstance<'cglue_a>, { ConnectorCpuStateInner<'cglue_a> });
 cglue_impl_group!(QemuProcfs<P: MemoryView + Clone>, IntoCpuState);
 
 #[derive(Clone)]

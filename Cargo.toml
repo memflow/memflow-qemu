@@ -1,6 +1,6 @@
 [package]
 name = "memflow-qemu"
-version = "0.2.0-beta7"
+version = "0.2.0-beta9"
 authors = ["ko1N <ko1N1337@gmail.com>", "Aurimas Blažulionis <0x60@pm.me>"]
 edition = "2018"
 description = "qemu connector for the memflow physical memory introspection framework"
@@ -16,19 +16,19 @@ categories = [ "api-bindings", "memory-management", "os" ]
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-memflow = { version = "^0.2.0-beta7", features = ["plugins"] }
-memflow-native = { version = "^0.2.0-beta7" }
+memflow = { version = "^0.2.0-beta9", features = ["plugins"] }
+memflow-native = { version = "^0.2.0-beta9" }
 #memflow = { path = "../memflow/memflow", features = ["plugins"] }
 #memflow-native = { path = "../memflow-native" }
 log = "^0.4.14"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-qapi = { version = "^0.8", features = ["qmp"], optional = true }
+qapi = { version = "^0.11", features = ["qmp"], optional = true }
 scan_fmt = { version = "^0.2.6", optional = true }
 
 [dev-dependencies]
-simplelog = "^0.11.1"
-memflow-win32 = { version = "^0.2.0-beta7" }
+simplelog = "^0.12.0"
+memflow-win32 = { version = "^0.2.0-beta9" }
 #memflow-win32 = { path = "../memflow-win32" }
 
 [profile.release]
