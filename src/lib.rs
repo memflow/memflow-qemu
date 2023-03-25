@@ -4,7 +4,7 @@ use memflow::cglue;
 use memflow::connector::cpu_state::*;
 use memflow::mem::memory_view::RemapView;
 use memflow::mem::phys_mem::*;
-use memflow::os::root::OsInner;
+use memflow::os::root::Os;
 use memflow::prelude::v1::*;
 
 mod qemu_args;
@@ -17,7 +17,9 @@ extern crate scan_fmt;
 mod mem_map;
 use mem_map::qemu_mem_mappings;
 
-cglue_impl_group!(QemuProcfs<P: MemoryView + Clone>, ConnectorInstance<'cglue_a>, { ConnectorCpuStateInner<'cglue_a> });
+cglue_impl_group!(QemuProcfs<P: MemoryView + Clone>, ConnectorInstance, {
+    ConnectorCpuState
+});
 cglue_impl_group!(QemuProcfs<P: MemoryView + Clone>, IntoCpuState);
 
 #[derive(Clone)]
@@ -26,7 +28,7 @@ pub struct QemuProcfs<P: MemoryView> {
 }
 
 impl<P: MemoryView + Process> QemuProcfs<P> {
-    pub fn new<O: OsInner<'static, IntoProcessType = P>>(
+    pub fn new<O: Os<IntoProcessType = P>>(
         mut os: O,
         map_override: Option<CTup2<Address, umem>>,
     ) -> Result<Self> {
@@ -52,7 +54,7 @@ impl<P: MemoryView + Process> QemuProcfs<P> {
         )
     }
 
-    pub fn with_guest_name<O: OsInner<'static, IntoProcessType = P>>(
+    pub fn with_guest_name<O: Os<IntoProcessType = P>>(
         mut os: O,
         name: &str,
         map_override: Option<CTup2<Address, umem>>,
@@ -83,7 +85,7 @@ impl<P: MemoryView + Process> QemuProcfs<P> {
         )
     }
 
-    fn with_process<O: OsInner<'static, IntoProcessType = P>>(
+    fn with_process<O: Os<IntoProcessType = P>>(
         os: O,
         info: ProcessInfo,
         map_override: Option<CTup2<Address, umem>>,
@@ -167,11 +169,11 @@ impl<P: MemoryView> PhysicalMemory for QemuProcfs<P> {
     }
 }
 
-impl<'a, P: MemoryView + 'static> ConnectorCpuStateInner<'a> for QemuProcfs<P> {
-    type CpuStateType = Fwd<&'a mut QemuProcfs<P>>;
+impl<P: MemoryView + 'static> ConnectorCpuState for QemuProcfs<P> {
+    type CpuStateType<'a> = Fwd<&'a mut QemuProcfs<P>>;
     type IntoCpuStateType = QemuProcfs<P>;
 
-    fn cpu_state(&'a mut self) -> Result<Self::CpuStateType> {
+    fn cpu_state(&mut self) -> Result<Self::CpuStateType<'_>> {
         Ok(self.forward_mut())
     }
 
@@ -230,7 +232,7 @@ pub fn create_connector(
     )
 }
 
-pub fn create_connector_with_os<O: OsInner<'static>>(
+pub fn create_connector_with_os<O: Os>(
     args: &ConnectorArgs,
     os: O,
 ) -> Result<QemuProcfs<O::IntoProcessType>> {
@@ -285,8 +287,7 @@ The `target` argument specifies the target qemu virtual machine.
 The qemu virtual machine name can be specified when starting qemu with the -name flag.
 
 Available arguments are:
-{}",
-        validator
+{validator}"
     )
 }
 
