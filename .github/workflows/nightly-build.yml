@@ -18,9 +18,11 @@ jobs:
         target: ["x86_64-unknown-linux-gnu", "i686-unknown-linux-gnu", "aarch64-unknown-linux-gnu", "armv7-unknown-linux-gnueabihf", "x86_64-pc-windows-gnu"]
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - name: Install rust 1.70.0
+        uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.70.0
+          override: true
       - name: Download renamer
         run: curl -sSf https://raw.githubusercontent.com/memflow/memflowup/master/target_rename.sh > target_rename.sh
       - name: Build artifacts

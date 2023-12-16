@@ -12,11 +12,18 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
+        flags: [--all-features, --no-default-features]
     steps:
       - uses: actions/checkout@v2
-      - name: Build
-        run: cargo build --workspace --all-features --verbose
+      - name: Install rust 1.70.0
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.70.0
+          override: true
 
+      - name: Build
+        run: cargo build --workspace ${{ matrix.flags }} --verbose
+  
   test:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -24,20 +31,31 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v2
+      - name: Install rust 1.70.0
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.70.0
+          override: true
+
       - name: Run all tests
-        run: cargo test --workspace --verbose
+        run: cargo test --workspace --all-features --verbose
 
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.70.0
+          override: true
+          components: rustfmt, clippy
       - run: rustup component add clippy
       - name: Check formatting
         run: cargo fmt -- --check
       - uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-targets
+          args: --all-targets --all-features --workspace -- -D clippy::all
 
   build-coverage:
     runs-on: ubuntu-latest
