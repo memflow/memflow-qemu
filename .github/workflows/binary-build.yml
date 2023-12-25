@@ -1,9 +1,10 @@
-name: Nightly build
+name: Binary build
 
 on:
   push:
     branch:
       - 'main'
+      - 'stable'
 
 env:
   CARGO_TERM_COLOR: always
@@ -37,6 +38,6 @@ jobs:
       - name: Upload build artifacts
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: nightly
+          tag_name: bin-${{ github.ref_name }}
           files: |
             ${{ steps.artifacts.outputs.artifact }}
