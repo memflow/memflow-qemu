@@ -85,6 +85,16 @@ impl<P: MemoryView + Process> QemuProcfs<P> {
         )
     }
 
+    pub fn with_pid<O: Os<IntoProcessType = P>>(
+        mut os: O,
+        pid: Pid,
+        map_override: Option<CTup2<Address, umem>>,
+    ) -> Result<Self> {
+        let proc = os.process_info_by_pid(pid)?;
+
+        Self::with_process(os, proc, map_override)
+    }
+
     fn with_process<O: Os<IntoProcessType = P>>(
         os: O,
         info: ProcessInfo,
@@ -254,7 +264,11 @@ pub fn create_connector_with_os<O: Os>(
                 .map(|(start, size)| CTup2(Address::from(start), size));
 
             if let Some(name) = name.or_else(|| args.get("name")) {
-                QemuProcfs::with_guest_name(os, name, map_override)
+                if let Ok(pid) = Pid::from_str_radix(name, 10) {
+                    QemuProcfs::with_pid(os, pid, map_override)
+                } else {
+                    QemuProcfs::with_guest_name(os, name, map_override)
+                }
             } else {
                 QemuProcfs::new(os, map_override)
             }
@@ -285,6 +299,8 @@ to have at least ptrace permissions set.
 
 The `target` argument specifies the target qemu virtual machine.
 The qemu virtual machine name can be specified when starting qemu with the -name flag.
+
+Alternatively, if `target` is a number, qemu process by PID will be accessed.
 
 Available arguments are:
 {validator}"

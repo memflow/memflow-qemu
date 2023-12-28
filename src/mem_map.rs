@@ -173,7 +173,7 @@ fn qemu_get_mtree_fallback(
             info!("using fallback memory mappings for q35 with less than 2816mb of ram");
             qemu_get_mtree_fallback_q35_smallmem(map_size)
         }
-    } else if machine.contains("aarch64") {
+    } else if machine.contains("aarch64") || machine.contains("virt") {
         info!("using fallback memory mappings for aarch64");
         qemu_get_mtree_fallback_aarch64(map_size)
     } else {
