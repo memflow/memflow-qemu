@@ -17,15 +17,15 @@ crate-type = ["lib", "cdylib"]
 
 [dependencies]
 memflow = { version = "0.2", features = ["plugins"] }
-memflow-native = { version = "0.2" }
-log = "^0.4.14"
+memflow-native = { version = "=0.2.1" } # TODO: update thi once m4b/goblin got released
+log = "0.4"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 qapi = { version = "^0.14", features = ["qmp"], optional = true }
 scan_fmt = { version = "^0.2.6", optional = true }
 
 [dev-dependencies]
-simplelog = "^0.12.0"
+env_logger = "0.11"
 memflow-win32 = { version = "0.2" }
 
 [profile.release]

@@ -15,19 +15,13 @@ https://docs.rs/memflow/0.1.5/memflow/connector/inventory/index.html
 */
 use std::env::args;
 
-use log::{info, Level};
+use log::info;
 
 use memflow::prelude::v1::*;
 use memflow_win32::prelude::v1::*;
 
 fn main() {
-    simplelog::TermLogger::init(
-        Level::Debug.to_level_filter(),
-        simplelog::Config::default(),
-        simplelog::TerminalMode::Stdout,
-        simplelog::ColorChoice::Auto,
-    )
-    .unwrap();
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     let connector_args = if let Some(arg) = args().nth(1) {
         str::parse(arg.as_ref()).expect("unable to parse command line arguments")

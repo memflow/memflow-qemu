@@ -17,18 +17,12 @@ or in any other path found in the official memflow documentation.
 */
 use std::env::args;
 
-use log::{info, Level};
+use log::info;
 
 use memflow::prelude::v1::*;
 
 fn main() {
-    simplelog::TermLogger::init(
-        Level::Debug.to_level_filter(),
-        simplelog::Config::default(),
-        simplelog::TerminalMode::Stdout,
-        simplelog::ColorChoice::Auto,
-    )
-    .unwrap();
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     let connector_args = args()
         .nth(1)

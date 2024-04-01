@@ -5,18 +5,12 @@ and prints them to stdout.
 */
 use std::time::Instant;
 
-use log::{info, Level};
+use log::info;
 
 use memflow::prelude::v1::*;
 
 fn main() {
-    simplelog::TermLogger::init(
-        Level::Debug.to_level_filter(),
-        simplelog::Config::default(),
-        simplelog::TerminalMode::Stdout,
-        simplelog::ColorChoice::Auto,
-    )
-    .unwrap();
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     let mut connector = memflow_qemu::create_connector(&Default::default())
         .expect("unable to initialize qemu connector");
