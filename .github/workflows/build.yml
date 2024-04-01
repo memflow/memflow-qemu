@@ -1,75 +1,58 @@
 name: Build and test
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
 
 env:
+  RUST_BACKTRACE: 1
   CARGO_TERM_COLOR: always
 
 jobs:
-
-  build_x86-64:
+  build:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
         flags: [--all-features, --no-default-features]
     steps:
-      - uses: actions/checkout@v2
-      - name: Install rust 1.70.0
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.70.0
-          override: true
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build ${{ matrix.flags }} --release
+      - run: cargo build ${{ matrix.flags }} --release --examples
 
-      - name: Build
-        run: cargo build --workspace ${{ matrix.flags }} --verbose
-  
   test:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        flags: [--all-features, --no-default-features]
     steps:
-      - uses: actions/checkout@v2
-      - name: Install rust 1.70.0
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.70.0
-          override: true
-
-      - name: Run all tests
-        run: cargo test --workspace --all-features --verbose
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test ${{ matrix.flags }} --all
 
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.70.0
-          override: true
           components: rustfmt, clippy
-      - run: rustup component add clippy
-      - name: Check formatting
-        run: cargo fmt -- --check
-      - uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-targets --all-features --workspace -- -D clippy::all
+      - run: cargo fmt -- --check
+      - run: cargo clippy --all-targets --all-features
 
   build-coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Set up Rust nightly
-        uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
           toolchain: nightly
-          override: true
       - run: cargo install grcov
-      - name: Run tests with coverage
-        run: |
+      - run: |
           export CARGO_INCREMENTAL=0
           export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort"
           export RUSTDOCFLAGS="-Cpanic=abort"
