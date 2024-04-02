@@ -70,5 +70,5 @@ jobs:
         run: memflowup --skip-version-check push --token ${{ secrets.MEMFLOW_REGISTRY_TOKEN }} --priv-key ec-secp256k1-priv-key.pem --file target/${{ matrix.platform.target }}/release/memflow_${{ env.PLUGIN_NAME }}.dll
         if: matrix.platform.os == 'windows-latest'
       - name: Upload plugin (mac)
-        run: memflowup --skip-version-check push --token ${{ secrets.MEMFLOW_REGISTRY_TOKEN }} --priv-key ec-secp256k1-priv-key.pem --file target/${{ matrix.platform.target }}/release/libmemflow${{ env.PLUGIN_NAME }}.dylib
+        run: memflowup --skip-version-check push --token ${{ secrets.MEMFLOW_REGISTRY_TOKEN }} --priv-key ec-secp256k1-priv-key.pem --file target/${{ matrix.platform.target }}/release/libmemflow_${{ env.PLUGIN_NAME }}.dylib
         if: matrix.platform.os == 'macOS-latest'
