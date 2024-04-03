@@ -58,7 +58,7 @@ jobs:
           target: ${{ matrix.platform.target }}
           toolchain: ${{ matrix.toolchain }}
           args: "--locked --release --all-features"
-          strip: true
+          strip: false
 
       - name: Install memflowup
         run: cargo install --git https://github.com/memflow/memflowup
