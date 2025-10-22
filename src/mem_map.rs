@@ -19,6 +19,7 @@ struct Mapping {
     pub range_start: umem,
     pub range_end: umem,
     pub remap_start: umem,
+    pub host_start: Option<umem>,
 }
 
 impl Mapping {
@@ -27,6 +28,7 @@ impl Mapping {
             range_start,
             range_end,
             remap_start,
+            host_start: None,
         }
     }
 }
@@ -35,6 +37,13 @@ pub fn qemu_mem_mappings(
     cmdline: &str,
     qemu_map: &CTup2<Address, umem>,
 ) -> Result<MemoryMap<(Address, umem)>> {
+    let qemu_map = || match qemu_map {
+        qemu_map if qemu_map.0 != Address::INVALID =>
+            Err(Error(ErrorOrigin::Connector, ErrorKind::NotFound)
+                .log_error("Unable to find the QEMU guest memory map. This usually indicates insufficient permissions to acquire the QEMU memory maps. Are you running with appropiate access rights?")
+            ),
+        qemu_map => Ok(qemu_map),
+    };
     let mut mem_map = MemoryMap::new();
 
     let mappings = if let Ok(mappings) = qmp_get_mtree(cmdline.split_whitespace()) {
@@ -54,15 +63,21 @@ pub fn qemu_mem_mappings(
                 .unwrap_or_else(|| "pc".into())
         };
         info!("qemu process started with machine: {}", machine);
-        qemu_get_mtree_fallback(&machine, qemu_map)
+        qemu_get_mtree_fallback(&machine, qemu_map()?)
     };
 
     // add all mappings
+    let mut real_base = None;
     for mapping in mappings.iter() {
+        let real_base = match mapping.host_start.map(Address::from).or(real_base) {
+            Some(start) => start,
+            None => *real_base.insert(qemu_map()?.0) + mapping.remap_start,
+        };
+
         mem_map.push_range(
             mapping.range_start.into(),
             mapping.range_end.into(),
-            qemu_map.0 + mapping.remap_start,
+            real_base,
         );
     }
 
@@ -115,7 +130,29 @@ fn qmp_get_mtree_stream<S: Read + Write + Clone>(stream: S) -> Result<Vec<Mappin
         })
         .map_err(|err| Error(ErrorOrigin::Connector, ErrorKind::Configuration).log_error(err))?;
 
-    Ok(qmp_parse_mtree(&mtreestr))
+    let mut mappings = qmp_parse_mtree(&mtreestr);
+    for mapping in &mut mappings {
+        if let Ok(line) = qmp.execute(&qmp::human_monitor_command {
+            command_line: format!("gpa2hva {:#10x}", mapping.range_start),
+            cpu_index: None,
+        }) {
+            let line = line.trim_end();
+            let hva = scan_fmt!(line, "Host virtual address for 0x{x} (pc.ram) is 0x{x}", [hex umem], [hex umem])
+                .map_err(|err| Error(
+                    ErrorOrigin::Connector,
+                    ErrorKind::UnsupportedOptionalFeature,
+                ).log_info(format_args!("failed to parse host address from {line:?}: {err}")));
+            match hva {
+                Ok((gpa, hva)) if gpa == mapping.range_start =>
+                    mapping.host_start = Some(hva),
+                _ => {
+                    log::warn!("failed to parse host address from {line:?}");
+                },
+            }
+        }
+    }
+
+    Ok(mappings)
 }
 
 #[cfg(not(all(target_os = "linux", feature = "qmp")))]
