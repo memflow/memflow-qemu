@@ -145,12 +145,12 @@ impl<P: MemoryView + Process> QemuProcfs<P> {
             );
         }
 
-        let qemu_map = biggest_map.ok_or_else(|| Error(ErrorOrigin::Connector, ErrorKind::NotFound)
-            .log_error("Unable to find the QEMU guest memory map. This usually indicates insufficient permissions to acquire the QEMU memory maps. Are you running with appropiate access rights?")
-        )?;
+        if let Some(qemu_map) = &biggest_map {
+            info!("qemu memory map found {:?}", qemu_map);
+        }
 
-        info!("qemu memory map found {:?}", qemu_map);
-
+        let qemu_map = biggest_map
+            .unwrap_or(CTup2(Address::INVALID, 0));
         Self::with_cmdline_and_mem(prc, &cmdline, qemu_map)
     }
 
