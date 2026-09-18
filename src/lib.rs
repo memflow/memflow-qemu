@@ -10,12 +10,15 @@ use memflow::prelude::v1::*;
 mod qemu_args;
 use qemu_args::{is_qemu, qemu_arg_opt};
 
+#[cfg(target_os = "linux")]
+mod proc_maps;
+
 #[cfg(all(target_os = "linux", feature = "qmp"))]
 #[macro_use]
 extern crate scan_fmt;
 
 mod mem_map;
-use mem_map::qemu_mem_mappings;
+use mem_map::{qemu_mem_mappings, try_qmp_mtree};
 
 cglue_impl_group!(QemuProcfs<P: MemoryView + Clone>, ConnectorInstance, {
     ConnectorCpuState
@@ -120,48 +123,132 @@ impl<P: MemoryView + Process> QemuProcfs<P> {
         );
 
         let cmdline: String = info.command_line.to_string();
+        let pid = info.pid;
 
         let mut prc = os.into_process_by_info(info)?;
 
-        let mut biggest_map = map_override;
+        // fetch the QMP mtree once up front, because it gives us both the guest -> host remap table and the exact pc.ram byte count.
+        // knowing the exact size is what lets us pin the host mapping to pc.ram even when a vfio-pci BAR mirror is larger.
+        let mtree = try_qmp_mtree(cmdline.split_whitespace()).ok();
+        let expected_pc_ram_size = mtree.as_ref().map(|m| mem_map::pc_ram_size(m));
 
-        let callback = &mut |range: MemoryRange| {
-            if biggest_map
-                .map(|CTup2(_, oldsize)| oldsize < range.1)
-                .unwrap_or(true)
-            {
-                biggest_map = Some(CTup2(range.0, range.1));
-            }
-
-            true
-        };
-
-        if map_override.is_none() {
-            prc.mapped_mem_range(
-                smem::mb(-1),
-                Address::NULL,
-                Address::INVALID,
-                callback.into(),
+        if let Some(size) = expected_pc_ram_size {
+            info!(
+                "qmp reports pc.ram size = {:#x} ({} MiB)",
+                size,
+                size / (1024 * 1024)
             );
         }
 
-        let qemu_map = biggest_map.ok_or_else(|| Error(ErrorOrigin::Connector, ErrorKind::NotFound)
-            .log_error("Unable to find the QEMU guest memory map. This usually indicates insufficient permissions to acquire the QEMU memory maps. Are you running with appropiate access rights?")
-        )?;
+        let qemu_map = if let Some(m) = map_override {
+            m
+        } else {
+            find_pc_ram_mapping(&mut prc, pid, expected_pc_ram_size)?
+        };
 
         info!("qemu memory map found {:?}", qemu_map);
 
-        Self::with_cmdline_and_mem(prc, &cmdline, qemu_map)
+        Self::with_cmdline_and_mem(prc, &cmdline, qemu_map, mtree)
     }
 
-    fn with_cmdline_and_mem(prc: P, cmdline: &str, qemu_map: CTup2<Address, umem>) -> Result<Self> {
-        let mem_map = qemu_mem_mappings(cmdline, &qemu_map)?;
+    fn with_cmdline_and_mem(
+        prc: P,
+        cmdline: &str,
+        qemu_map: CTup2<Address, umem>,
+        prepared: Option<Vec<mem_map::Mapping>>,
+    ) -> Result<Self> {
+        let mem_map = qemu_mem_mappings(cmdline, &qemu_map, prepared)?;
         info!("qemu machine mem_map: {:?}", mem_map);
 
         Ok(Self {
             view: prc.into_remap_view(mem_map),
         })
     }
+}
+
+fn find_pc_ram_mapping<P: Process>(
+    prc: &mut P,
+    pid: Pid,
+    expected_size: Option<umem>,
+) -> Result<CTup2<Address, umem>> {
+    #[cfg(target_os = "linux")]
+    if let Some(m) = pick_pc_ram_via_procfs(pid, expected_size) {
+        return Ok(m);
+    }
+
+    let mut biggest_map: Option<CTup2<Address, umem>> = None;
+    let callback = &mut |range: MemoryRange| {
+        if biggest_map
+            .map(|CTup2(_, oldsize)| oldsize < range.1)
+            .unwrap_or(true)
+        {
+            biggest_map = Some(CTup2(range.0, range.1));
+        }
+        true
+    };
+    prc.mapped_mem_range(
+        smem::mb(-1),
+        Address::NULL,
+        Address::INVALID,
+        callback.into(),
+    );
+
+    biggest_map.ok_or_else(|| {
+        Error(ErrorOrigin::Connector, ErrorKind::NotFound).log_error(
+            "Unable to find the QEMU guest memory map. This usually indicates \
+             insufficient permissions to acquire the QEMU memory maps. Are you \
+             running with appropriate access rights?",
+        )
+    })
+}
+
+#[cfg(target_os = "linux")]
+fn pick_pc_ram_via_procfs(pid: Pid, expected_size: Option<umem>) -> Option<CTup2<Address, umem>> {
+    let maps = match proc_maps::read(pid) {
+        Ok(m) => m,
+        Err(e) => {
+            debug!("could not read /proc/{}/maps: {}", pid, e);
+            return None;
+        }
+    };
+
+    let candidates: Vec<_> = maps
+        .into_iter()
+        .filter(proc_maps::ProcMap::is_ram_candidate)
+        .collect();
+
+    if candidates.is_empty() {
+        debug!("no ram-candidate mappings in /proc/{}/maps", pid);
+        return None;
+    }
+
+    if let Some(want) = expected_size {
+        if let Some(m) = candidates.iter().find(|m| m.size() == want) {
+            info!(
+                "pc.ram: matched procfs mapping {:x}-{:x} (size {:#x}) to QMP pc.ram size",
+                m.start.to_umem(),
+                m.end.to_umem(),
+                m.size()
+            );
+            return Some(CTup2(m.start, m.size()));
+        }
+        error!(
+            "QMP reports pc.ram = {:#x} bytes but no /proc/{}/maps entry matches; \
+             falling back to biggest ram-candidate mapping. This may indicate an \
+             unusual QEMU memory backend or a memflow-qemu bug - please attach \
+             the /proc/<pid>/maps content when filing an issue.",
+            want, pid
+        );
+    }
+
+    let m = candidates.into_iter().max_by_key(|m| m.size())?;
+    info!(
+        "pc.ram: picked largest ram-candidate procfs mapping {:x}-{:x} (size {:#x})",
+        m.start.to_umem(),
+        m.end.to_umem(),
+        m.size()
+    );
+    Some(CTup2(m.start, m.size()))
 }
 
 impl<P: MemoryView> PhysicalMemory for QemuProcfs<P> {

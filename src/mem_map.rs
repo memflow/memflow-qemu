@@ -15,7 +15,7 @@ use {
 };
 
 #[derive(Debug, Clone)]
-struct Mapping {
+pub(crate) struct Mapping {
     pub range_start: umem,
     pub range_end: umem,
     pub remap_start: umem,
@@ -34,10 +34,13 @@ impl Mapping {
 pub fn qemu_mem_mappings(
     cmdline: &str,
     qemu_map: &CTup2<Address, umem>,
+    prepared: Option<Vec<Mapping>>,
 ) -> Result<MemoryMap<(Address, umem)>> {
     let mut mem_map = MemoryMap::new();
 
-    let mappings = if let Ok(mappings) = qmp_get_mtree(cmdline.split_whitespace()) {
+    let mappings = if let Some(mappings) = prepared {
+        mappings
+    } else if let Ok(mappings) = try_qmp_mtree(cmdline.split_whitespace()) {
         mappings
     } else {
         // find machine architecture and type
@@ -69,8 +72,18 @@ pub fn qemu_mem_mappings(
     Ok(mem_map)
 }
 
+pub(crate) fn pc_ram_size(mappings: &[Mapping]) -> umem {
+    mappings
+        .iter()
+        .map(|m| m.remap_start + (m.range_end - m.range_start))
+        .max()
+        .unwrap_or(0)
+}
+
 #[cfg(all(target_os = "linux", feature = "qmp"))]
-fn qmp_get_mtree<'a>(cmdline: impl IntoIterator<Item = &'a str>) -> Result<Vec<Mapping>> {
+pub(crate) fn try_qmp_mtree<'a>(
+    cmdline: impl IntoIterator<Item = &'a str>,
+) -> Result<Vec<Mapping>> {
     // -qmp unix:/tmp/qmp-win10-reversing.sock,server,nowait
     let socket_addr = qemu_arg_opt(cmdline, "-qmp", "")
         .ok_or(Error(ErrorOrigin::Connector, ErrorKind::Configuration))?;
@@ -119,7 +132,9 @@ fn qmp_get_mtree_stream<S: Read + Write + Clone>(stream: S) -> Result<Vec<Mappin
 }
 
 #[cfg(not(all(target_os = "linux", feature = "qmp")))]
-fn qmp_get_mtree<'a>(_cmdline: impl IntoIterator<Item = &'a str>) -> Result<Vec<Mapping>> {
+pub(crate) fn try_qmp_mtree<'a>(
+    _cmdline: impl IntoIterator<Item = &'a str>,
+) -> Result<Vec<Mapping>> {
     Err(Error(
         ErrorOrigin::Connector,
         ErrorKind::UnsupportedOptionalFeature,
@@ -233,7 +248,7 @@ fn qemu_get_mtree_fallback_pc(map_size: umem) -> Vec<Mapping> {
 #[cfg(test)]
 #[cfg(all(target_os = "linux", feature = "qmp"))]
 mod tests {
-    use super::qmp_parse_mtree;
+    use super::{pc_ram_size, qmp_parse_mtree, Mapping};
 
     #[test]
     fn test_parse_mtree() {
@@ -306,7 +321,7 @@ mod tests {
          000000000000f000-000000000000f03f (prio 1, i/o): pm-smbus
          000000000000f040-000000000000f05f (prio 1, i/o): ahci-idp
          000000000000f060-000000000000ffff (prio 0, i/o): io @000000000000f060
-       
+
        FlatView #1
         AS \"memory\", root: system
         AS \"cpu-memory-0\", root: system
@@ -470,7 +485,7 @@ mod tests {
          0000000812501000-0000000812501fff (prio 0, i/o): virtio-pci-isr-virtio-blk
          0000000812502000-0000000812502fff (prio 0, i/o): virtio-pci-device-virtio-blk
          0000000812503000-0000000812503fff (prio 0, i/o): virtio-pci-notify-virtio-blk
-       
+
        FlatView #2
         AS \"KVM-SMRAM\", root: mem-container-smram
         Root memory region: mem-container-smram
@@ -608,5 +623,47 @@ mod tests {
         assert_eq!(mappings[3].range_start, 0x100000000);
         assert_eq!(mappings[3].range_end, 0x480000000);
         assert_eq!(mappings[3].remap_start, 0x80000000);
+    }
+
+    #[test]
+    fn test_pc_ram_size_matches_tail_mapping() {
+        /*
+        0000000000000000-00000000000bffff (prio 0, ram): pc.ram KVM
+        0000000000100000-0000000000102fff (prio 0, ram): pc.ram @0000000000100000 KVM
+        0000000000113000-000000007fffffff (prio 0, ram): pc.ram @0000000000113000 KVM
+        0000000100000000-000000047fffffff (prio 0, ram): pc.ram @0000000080000000 KVM
+        */
+        let mappings = vec![
+            Mapping::new(0, 0xc0000, 0),
+            Mapping::new(0x100000, 0x103000, 0x100000),
+            Mapping::new(0x113000, 0x80000000, 0x113000),
+            Mapping::new(0x100000000, 0x480000000, 0x80000000),
+        ];
+        assert_eq!(pc_ram_size(&mappings), 0x400000000);
+    }
+
+    #[test]
+    fn test_pc_ram_size_with_tseg_hole() {
+        /*
+        0000000000000000-000000000002ffff (prio 0, ram): pc.ram KVM
+        0000000000050000-000000000009ffff (prio 0, ram): pc.ram @0000000000050000 KVM
+        0000000000100000-000000000013ffff (prio 0, ram): pc.ram @0000000000100000 KVM
+        0000000000150000-000000007bffffff (prio 0, ram): pc.ram @0000000000150000 KVM
+        000000007c000000-000000007fffffff (prio 1, i/o): tseg-blackhole
+        0000000100000000-000000047fffffff (prio 0, ram): pc.ram @0000000080000000 KVM
+        */
+        let mappings = vec![
+            Mapping::new(0, 0x30000, 0),
+            Mapping::new(0x50000, 0xa0000, 0x50000),
+            Mapping::new(0x100000, 0x140000, 0x100000),
+            Mapping::new(0x150000, 0x7c000000, 0x150000),
+            Mapping::new(0x100000000, 0x480000000, 0x80000000),
+        ];
+        assert_eq!(pc_ram_size(&mappings), 0x400000000);
+    }
+
+    #[test]
+    fn test_pc_ram_size_empty() {
+        assert_eq!(pc_ram_size(&[]), 0);
     }
 }
